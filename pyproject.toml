@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-readable"
+version = "0.1.0"
+description = "A lightweight protocol for exposing agent-oriented documentation from Python classes and modules"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "zydo and agent-readable contributors" }]
+keywords = [
+    "agent",
+    "ai-agent",
+    "coding-agent",
+    "llm",
+    "ai",
+    "documentation",
+    "docstring",
+    "protocol",
+    "mixin",
+    "agent-help",
+    "vibe-coding",
+    "prompt-engineering",
+    "context-engineering",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Code Generators",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/zydo/agent-readable"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_readable"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=agent_readable"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-cov>=7.1.0"]
