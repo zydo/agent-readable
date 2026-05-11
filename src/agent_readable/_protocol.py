@@ -66,7 +66,7 @@ class AgentReadableMixin:
 
 def agent_help(obj: Any) -> str:
     """
-    Return agent-oriented help for a class, instance, or module.
+    Return agent-oriented help for a class, instance, module, function, or method.
 
     Dispatch for classes/instances:
 
@@ -89,6 +89,11 @@ def agent_help(obj: Any) -> str:
     or string), it is used directly. Otherwise auto-generated docs are produced
     via ``_module_doc()``. Module ``__agent_notes__`` is not part of the
     protocol — modules don't have an MRO to accumulate over.
+
+    For functions and methods (anything ``inspect.isroutine`` accepts): an
+    ``__agent_help__`` attribute on the routine — callable or string — is used
+    directly if present; otherwise ``_function_doc()`` renders signature, full
+    docstring, and agent usage rules.
     """
     if inspect.ismodule(obj):
         fn = getattr(obj, "__agent_help__", None)
@@ -103,6 +108,20 @@ def agent_help(obj: Any) -> str:
         if isinstance(fn, str):
             return fn
         return _module_doc(obj)
+
+    if inspect.isroutine(obj):
+        override = getattr(obj, "__agent_help__", None)
+        if callable(override):
+            try:
+                result = override()
+                if isinstance(result, str):
+                    return result
+                return str(result)
+            except Exception:
+                pass
+        if isinstance(override, str):
+            return override
+        return _function_doc(obj)
 
     target = obj if inspect.isclass(obj) else obj.__class__
 
@@ -181,6 +200,41 @@ def _collect_module_api(module: types.ModuleType) -> list[str]:
         elif isinstance(obj, types.ModuleType):
             continue
     return lines
+
+
+def _function_doc(fn: Any) -> str:
+    """Generate compact Markdown documentation for a function or method."""
+    parts: list[str] = []
+
+    short_name = getattr(fn, "__name__", None) or "function"
+    display_name = getattr(fn, "__qualname__", None) or short_name
+    parts.append(f"# {display_name}")
+    parts.append("")
+
+    sig = _safe_signature(fn)
+    parts.append("## Signature")
+    parts.append("")
+    parts.append("```python")
+    parts.append(f"{short_name}{sig}")
+    parts.append("```")
+    parts.append("")
+
+    doc = inspect.getdoc(fn)
+    if doc:
+        parts.append("## Purpose")
+        parts.append("")
+        parts.append(doc)
+        parts.append("")
+
+    parts.append("## Agent usage rules")
+    parts.append("")
+    parts.append("- Call with the documented signature.")
+    parts.append("- Do not invent unsupported behavior.")
+    parts.append(
+        "- If usage is ambiguous, prefer the simplest documented usage pattern."
+    )
+
+    return "\n".join(parts)
 
 
 def _base_agent_doc(cls: type) -> str:

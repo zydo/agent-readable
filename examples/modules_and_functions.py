@@ -1,12 +1,14 @@
 """
-Example: Using agent_help() on modules.
+Example: Using agent_help() on modules, functions, and methods.
 
-Demonstrates both shapes of module support:
+Demonstrates non-class targets:
   1. A custom module (this file itself).
   2. A stdlib module (pathlib).
+  3. A function (connect, defined below).
+  4. A method (Query.execute, defined below).
 
-Run this file to see both outputs:
-    python examples/module_support.py
+Run this file to see all outputs:
+    python examples/modules_and_functions.py
 """
 
 import os
@@ -47,3 +49,19 @@ if __name__ == "__main__":
     print("=== agent_help(pathlib) — stdlib module ===")
     print()
     print(agent_help(pathlib))
+
+    print()
+    print("=" * 72)
+    print()
+
+    print("=== agent_help(connect) — function ===")
+    print()
+    print(agent_help(connect))
+
+    print()
+    print("=" * 72)
+    print()
+
+    print("=== agent_help(Query.execute) — method ===")
+    print()
+    print(agent_help(Query.execute))

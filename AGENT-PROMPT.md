@@ -15,6 +15,12 @@ print(agent_help(ClassName))
 # or
 print(agent_help(package.module))
 # or: python -m agent_readable package.module
+
+# functions and methods also work
+print(agent_help(package.module.func))
+print(agent_help(ClassName.method))
+# or: python -m agent_readable package.module:func
+# or: python -m agent_readable package.module:ClassName.method
 ```
 
 Treat the output as the canonical usage guide. Follow do/don't rules, anti-patterns, and lifecycle constraints exactly. Do not invent behavior that contradicts it.

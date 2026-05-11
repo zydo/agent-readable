@@ -385,9 +385,9 @@ Instances of the Logger class represent a single logging channel. A
 
 No mixin, no duck-typing — just pass any class to `agent_help()`.
 
-## Example 5: Modules
+## Example 5: Modules, functions, and methods
 
-`agent_help()` also works on modules — it generates a summary with the module docstring, public functions, and classes. Full example: [`examples/module_support.py`](examples/module_support.py).
+`agent_help()` also works on modules — it generates a summary with the module docstring, public functions, and classes. Full example: [`examples/modules_and_functions.py`](examples/modules_and_functions.py).
 
 ```python
 import sys
@@ -410,7 +410,7 @@ Demonstrates both shapes of module support:
   2. A stdlib module (pathlib).
 
 Run this file to see both outputs:
-    python examples/module_support.py
+    python examples/modules_and_functions.py
 
 ## Public API
 
@@ -426,7 +426,7 @@ Run this file to see both outputs:
 - If usage is ambiguous, prefer the simplest documented usage pattern.
 ````
 
-You can also pass any stdlib or third-party module — same `module_support.py` shows it.
+You can also pass any stdlib or third-party module — same `modules_and_functions.py` shows it.
 
 ```python
 import pathlib
@@ -475,6 +475,15 @@ operating systems.
 
 Modules support less customization than classes — there is no mixin inheritance or `__agent_notes__()`. You can override the auto-generated output entirely by setting a module-level `__agent_help__` attribute (callable or string), but this is discouraged since it replaces the auto-generated summary — signatures, purpose, and public API listing are all lost. Prefer clear docstrings on the module and its functions/classes instead.
 
+You can also pass a function or method directly — `agent_help()` renders the signature, full docstring, and usage rules. The output is close to `help()` for a single callable; the bigger wins are still on classes and modules.
+
+```python
+import pathlib
+from agent_readable import agent_help
+
+print(agent_help(pathlib.Path.read_text))
+```
+
 ```python
 import sys
 
@@ -496,9 +505,13 @@ python -m agent_readable agent_readable:AgentReadableMixin
 
 # Any module
 python -m agent_readable pathlib
+
+# A function or method
+python -m agent_readable json:dumps
+python -m agent_readable pathlib:Path.read_text
 ```
 
-Outputs agent-oriented documentation for the given class or module to stdout.
+Outputs agent-oriented documentation for the given class, module, function, or method to stdout.
 
 ## FAQ
 

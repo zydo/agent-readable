@@ -584,3 +584,108 @@ def test_agent_help_module_invalid_attr_falls_back():
     result = agent_help(mod)
     assert "# mymod" in result
     assert "Fallback doc." in result
+
+
+# -- Function / method tests -------------------------------------------------
+
+
+def test_agent_help_function_basic():
+    def greet(name: str) -> str:
+        """Say hello to someone."""
+        return f"Hello, {name}"
+
+    result = agent_help(greet)
+    assert result.startswith("#") and "greet" in result.splitlines()[0]
+    assert "## Signature" in result
+    assert "greet(name: str) -> str" in result
+    assert "## Purpose" in result
+    assert "Say hello to someone." in result
+    assert "## Agent usage rules" in result
+
+
+def test_agent_help_unbound_method_keeps_self():
+    class Pool:
+        def rotated(self, n: int) -> "Pool":
+            """Rotate the pool by n positions."""
+            return self
+
+    result = agent_help(Pool.rotated)
+    assert "Pool.rotated" in result.splitlines()[0]
+    assert "rotated(self, n: int)" in result
+    assert "Rotate the pool by n positions." in result
+
+
+def test_agent_help_bound_method_strips_self():
+    class Pool:
+        def rotated(self, n: int) -> "Pool":
+            """Rotate the pool by n positions."""
+            return self
+
+    result = agent_help(Pool().rotated)
+    assert "rotated(n: int)" in result
+    assert "self" not in result.split("## Signature", 1)[1].split("##", 1)[0]
+
+
+def test_agent_help_classmethod_strips_cls():
+    class Pool:
+        @classmethod
+        def of(cls, n: int) -> "Pool":
+            """Construct a pool of size n."""
+            return cls()
+
+    result = agent_help(Pool.of)
+    assert "of(n: int)" in result
+    assert "Construct a pool of size n." in result
+
+
+def test_agent_help_function_without_docstring():
+    def f(x: int) -> int:
+        return x
+
+    result = agent_help(f)
+    assert result.startswith("#") and "f" in result.splitlines()[0]
+    assert "## Purpose" not in result
+    assert "## Agent usage rules" in result
+
+
+def test_agent_help_function_custom_callable_override():
+    def f():
+        """Auto doc."""
+
+    f.__agent_help__ = lambda: "Custom function help."
+    assert agent_help(f) == "Custom function help."
+
+
+def test_agent_help_function_custom_string_override():
+    def f():
+        """Auto doc."""
+
+    f.__agent_help__ = "String function help."
+    assert agent_help(f) == "String function help."
+
+
+def test_agent_help_function_non_string_return():
+    def f():
+        """Auto doc."""
+
+    f.__agent_help__ = lambda: 99
+    assert agent_help(f) == "99"
+
+
+def test_agent_help_function_override_exception_falls_back():
+    def f():
+        """Fallback doc."""
+
+    def boom():
+        raise RuntimeError("boom")
+
+    f.__agent_help__ = boom
+    result = agent_help(f)
+    assert "Fallback doc." in result
+    assert "## Signature" in result
+
+
+def test_agent_help_builtin_function():
+    result = agent_help(len)
+    assert "# len" in result
+    assert "## Signature" in result

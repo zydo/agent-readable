@@ -71,9 +71,26 @@ def test_cli_nonexistent_attribute():
         _run_main("tests.test_cli:NonExistent")
 
 
-def test_cli_non_class_target():
-    with pytest.raises(TypeError, match="expected a class or module"):
-        _run_main("agent_readable:agent_help")
+def test_cli_function_target(capsys):
+    code = _run_main("agent_readable:agent_help")
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "agent_help" in out
+    assert "## Signature" in out
+
+
+def test_cli_method_target(capsys):
+    code = _run_main("tests.test_cli:Cache.get")
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "Cache.get" in out
+    assert "## Signature" in out
+    assert "Retrieve a value by key." in out
+
+
+def test_cli_invalid_target_type():
+    with pytest.raises(TypeError, match="expected a class, module, function"):
+        _run_main("agent_readable:__version__")
 
 
 def test_cli_module(capsys):

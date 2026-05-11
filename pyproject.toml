@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agent-readable"
-version = "0.1.0"
-description = "A lightweight protocol for exposing agent-oriented documentation from Python classes and modules"
+version = "0.1.1"
+description = "A lightweight Python protocol for agent-oriented documentation"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
