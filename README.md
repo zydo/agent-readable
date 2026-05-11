@@ -450,9 +450,9 @@ operating systems.
 
 ## Public API
 
-- `DirEntryInfo` class: Implementation of pathlib.types.PathInfo that provides status
+- `DirEntryInfo` class: Implementation of pathlib.types.PathInfo that provides status information by querying a wrapped os.DirEntry object. Don't try to construct it yourself.
 - `Path` class: PurePath subclass that can make system calls.
-- `PathInfo` class: Implementation of pathlib.types.PathInfo that provides status
+- `PathInfo` class: Implementation of pathlib.types.PathInfo that provides status information for POSIX paths. Don't try to construct it yourself.
 - `PosixPath` class: Path subclass for non-Windows systems.
 - `PurePath` class: Base class for manipulating paths without I/O.
 - `PurePosixPath` class: PurePath subclass for non-Windows systems.
@@ -463,7 +463,7 @@ operating systems.
 - `copyfileobj(source_f, target_f)` function: Copy data from file-like object source_f to file-like object target_f.
 - `ensure_different_files(source, target)` function: Raise OSError(EINVAL) if both paths refer to the same file.
 - `ensure_distinct_paths(source, target)` function: Raise OSError(EINVAL) if the other path is within this path.
-- `magic_open(path, mode='r', buffering=-1, encoding=None, errors=None, newline=None)` function: Open the file pointed to by this path and return a file object, as
+- `magic_open(path, mode='r', buffering=-1, encoding=None, errors=None, newline=None)` function: Open the file pointed to by this path and return a file object, as the built-in open() function does.
 
 ## Agent usage rules
 
