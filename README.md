@@ -2,6 +2,13 @@
 
 A lightweight Python protocol for exposing agent-oriented documentation from classes and modules.
 
+<!-- markdownlint-disable MD033 -->
+<p align="center">
+  <strong><code>logging.Logger</code> compared with <code>agent_help()</code> and <code>help()</code></strong><br>
+  <img src="docs/agent_help_vs_help.gif" alt="agent_help vs help">
+</p>
+<!-- markdownlint-enable MD033 -->
+
 ## Problem
 
 AI coding agents recognize established libraries from their training data, but they hallucinate when APIs change, when libraries are new, or when correct usage depends on rules that aren't visible from the API surface — pre-conditions, lifecycle order, anti-patterns, *"use `call()` for non-streaming, `stream()` for streaming."*
@@ -549,7 +556,7 @@ Classes that define a `@classmethod` named `__agent_help__` returning a `str` ar
 The two dunders intentionally encode different composition rules:
 
 | Aspect          | `__agent_help__()`                              | `__agent_notes__()`                                                         |
-|-----------------|-------------------------------------------------|-----------------------------------------------------------------------------|
+| --------------- | ----------------------------------------------- | --------------------------------------------------------------------------- |
 | Semantics       | **Replacement** — returned string IS the output | **Additive** — appended to auto-generated docs                              |
 | Composition     | Single class wins (the one closest in MRO)      | Accumulated across the MRO; leaf class wins on conflict (header marks this) |
 | When to use     | Total control over the rendered text            | "Auto-doc + my extra do/don't rules"                                        |
