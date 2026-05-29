@@ -107,7 +107,7 @@ def _run_main(*args: str):
     sys.argv = ["agent_readable", *args]
     try:
         main()
-    except SystemExit as e:  # noqa: S5754
+    except SystemExit as e:  # NOSONAR
         return e.code
     finally:
         sys.argv = orig

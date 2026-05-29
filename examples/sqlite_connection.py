@@ -37,7 +37,7 @@ if __name__ == "__main__":
     print("=== help(sqlite3.Connection) — verbose, not agent-friendly ===")
     print()
     os.environ["PAGER"] = "cat"
-    help(sqlite3.Connection)  # noqa: S2201
+    help(sqlite3.Connection)  # NOSONAR
 
     print()
     print("=" * 72)

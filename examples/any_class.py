@@ -21,7 +21,7 @@ if __name__ == "__main__":
     print("=== help(logging.Logger) — verbose, not agent-friendly ===")
     print()
     os.environ["PAGER"] = "cat"
-    help(logging.Logger)  # noqa: S2201
+    help(logging.Logger)  # NOSONAR
 
     print()
     print("=" * 72)

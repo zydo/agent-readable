@@ -76,7 +76,7 @@ if __name__ == "__main__":
     print("=== help(CalibratedSensor) — verbose, not agent-friendly ===")
     print()
     os.environ["PAGER"] = "cat"
-    help(CalibratedSensor)  # noqa: S2201
+    help(CalibratedSensor)  # NOSONAR
 
     print()
     print("=" * 72)

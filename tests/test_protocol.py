@@ -1,4 +1,7 @@
 import types
+import warnings
+
+import pytest
 
 from agent_readable import AgentReadable, AgentReadableMixin, agent_help
 
@@ -28,7 +31,7 @@ class WithoutAgentDoc:
         """Create from a config file."""
 
     @staticmethod
-    def validate(config):  # noqa: S1186
+    def validate(config):
         """Validate the given config."""
 
     @property
@@ -178,9 +181,71 @@ def test_agent_help_duck_typed_skips_notes():
         def __agent_notes__(cls) -> str:
             return "These notes should be ignored."
 
-    result = agent_help(DuckTyped)
+    with pytest.warns(UserWarning, match="silently dropped"):
+        result = agent_help(DuckTyped)
     assert result == "Duck-typed verbatim."
     assert "should be ignored" not in result
+
+
+def test_agent_help_warns_when_custom_help_drops_notes():
+    """A custom __agent_help__ plus __agent_notes__ warns that the notes are lost."""
+
+    class DropsNotes:
+        """Custom help that shadows its own notes."""
+
+        @classmethod
+        def __agent_help__(cls) -> str:
+            return "Verbatim."
+
+        @classmethod
+        def __agent_notes__(cls) -> str:
+            return "Lost notes."
+
+    with pytest.warns(UserWarning) as record:
+        agent_help(DropsNotes)
+
+    assert len(record) == 1
+    message = str(record[0].message)
+    assert "DropsNotes" in message
+    assert "__agent_help__" in message
+    assert "__agent_notes__" in message
+
+
+def test_agent_help_no_warning_for_mixin_with_notes():
+    """The mixin default appends notes, so combining it with notes must not warn."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = agent_help(MixinWithNotes)
+    assert "## Notes from class MixinWithNotes" in result
+
+
+def test_agent_help_no_warning_for_duck_typed_without_notes():
+    """A custom __agent_help__ with no notes has nothing to drop, so must not warn."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = agent_help(HasAgentDocButNotMixin)
+    assert result == "Duck-typed agent doc."
+
+
+def test_agent_help_no_warning_when_custom_help_raises():
+    """If a custom __agent_help__ raises, we fall back to auto-doc (keeping notes)."""
+
+    class BrokenHelp:
+        """Custom help that raises, plus notes."""
+
+        @classmethod
+        def __agent_help__(cls) -> str:
+            raise RuntimeError("boom")
+
+        @classmethod
+        def __agent_notes__(cls) -> str:
+            return "Kept notes."
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = agent_help(BrokenHelp)
+    assert "## Notes from class BrokenHelp" in result
+    assert "Kept notes." in result
 
 
 def test_agent_help_plain_class_fallback():
@@ -351,7 +416,9 @@ def test_agent_help_method_self_only_with_return_annotation():
 
 
 def test_agent_help_method_nested_generics():
-    from typing import Callable
+    # typing.Callable renders without a module prefix; collections.abc.Callable
+    # would render as "collections.abc.Callable", which this test asserts against.
+    from typing import Callable  # noqa: UP035
 
     class Nested:
         """Test class."""
@@ -441,7 +508,7 @@ def test_agent_help_exception_falls_back_to_base_doc():
 def test_agent_help_skips_dynamic_attributes():
     class _Meta(type):
         def __dir__(cls):
-            return list(super().__dir__()) + ["visible"]
+            return [*super().__dir__(), "visible"]
 
         def __getattr__(cls, name):  # type: ignore[override]
             if name == "visible":
@@ -600,7 +667,7 @@ def test_agent_help_module_all_restricts_to_listed_names():
         """Shown function."""
         return x
 
-    def hidden():  # noqa: S1186
+    def hidden():
         """Hidden function."""
 
     shown.__module__ = "mymod"

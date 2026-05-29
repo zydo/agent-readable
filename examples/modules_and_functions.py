@@ -30,7 +30,7 @@ def disconnect():
 class Query:
     """Build and execute a query."""
 
-    def execute(self, sql: str) -> list:  # noqa: S1172
+    def execute(self, sql: str) -> list:  # NOSONAR
         """Execute a SQL statement."""
         return []
 

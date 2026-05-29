@@ -18,7 +18,7 @@ class RateLimiter:
 
     def __init__(self, max_tokens: int, refill_rate: float): ...
 
-    def acquire(self, tokens: int = 1) -> bool:  # noqa
+    def acquire(self, _tokens: int = 1) -> bool:
         """Try to acquire tokens. Returns False if rate-limited."""
         return True
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     print("=== help(RateLimiter) — no usage guidance ===")
     print()
     os.environ["PAGER"] = "cat"
-    help(RateLimiter)  # noqa: S2201
+    help(RateLimiter)  # NOSONAR
 
     print()
     print("=" * 72)

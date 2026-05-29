@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import inspect
 import types
+import warnings
 from typing import Any, Protocol, runtime_checkable
+
+_MISSING = object()
 
 
 @runtime_checkable
@@ -75,7 +78,8 @@ def agent_help(obj: Any) -> str:
        ``_base_agent_doc(cls)`` (auto-doc with ``__agent_notes__`` appended);
        duck-typed implementations return whatever the user formatted, so notes
        are NOT auto-included on that path — the implementer owns the full
-       output.
+       output. If such a class also defines ``__agent_notes__()``, a
+       ``UserWarning`` is emitted because those notes are silently dropped.
     2. **``__agent_help__`` is missing** — fall through to
        ``_base_agent_doc(cls)``, which appends ``__agent_notes__()`` from every
        class in the MRO automatically.
@@ -127,15 +131,41 @@ def agent_help(obj: Any) -> str:
 
     fn = getattr(target, "__agent_help__", None)
     if callable(fn):
+        result = _MISSING
         try:
             result = fn()
+        except Exception:
+            pass
+        if result is not _MISSING:
+            if _custom_help_drops_notes(target, fn):
+                warnings.warn(
+                    f"{target.__name__} defines both a custom __agent_help__() and "
+                    "__agent_notes__(), but the notes are silently dropped: a custom "
+                    "__agent_help__() owns the full output, so agent_help() never "
+                    "appends notes. Fold the notes into __agent_help__(), or remove "
+                    "the custom __agent_help__() to use the auto-generated docs "
+                    "(which do append notes).",
+                    stacklevel=2,
+                )
             if isinstance(result, str):
                 return result
             return str(result)
-        except Exception:
-            pass
 
     return _base_agent_doc(target)
+
+
+def _custom_help_drops_notes(cls: type, fn: Any) -> bool:
+    """True when a custom ``__agent_help__`` will silently discard ``__agent_notes__``.
+
+    A custom (non-mixin) ``__agent_help__`` owns the full output and never reaches
+    ``_base_agent_doc``, so any ``__agent_notes__`` the class defines is dropped. The
+    mixin default appends notes, so it returns False; classes with no effective notes
+    also return False.
+    """
+    mixin_help = AgentReadableMixin.__agent_help__.__func__
+    if getattr(fn, "__func__", None) is mixin_help:
+        return False
+    return bool(_collect_agent_notes(cls))
 
 
 def _module_doc(module: types.ModuleType) -> str:

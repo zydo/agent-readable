@@ -566,7 +566,7 @@ The two dunders intentionally encode different composition rules:
 | Semantics       | **Replacement** — returned string IS the output | **Additive** — appended to auto-generated docs                              |
 | Composition     | Single class wins (the one closest in MRO)      | Accumulated across the MRO; leaf class wins on conflict (header marks this) |
 | When to use     | Total control over the rendered text            | "Auto-doc + my extra do/don't rules"                                        |
-| Skipped when    | (always called if defined)                      | Skipped when a duck-typed `__agent_help__` is present (it owns the output)  |
+| Skipped when    | (always called if defined)                      | Skipped (with a `UserWarning`) when a custom `__agent_help__` is present (it owns the output) |
 | Mixin required? | No — duck-typed classmethod is enough           | No — defining `__agent_notes__` on any class is enough                      |
 
 ## Class docstring hints
@@ -601,7 +601,7 @@ If a class inherits from `AgentReadableMixin`, coding agents should call `agent_
 
 Returns a string of agent-oriented documentation for a class, instance, or module.
 
-- For classes and instances: if `__agent_help__()` is defined (via mixin or duck-typing), it is called and its return value is used verbatim — duck-typed implementations are responsible for their own formatting and notes are NOT auto-appended. Otherwise, auto-generated docs are produced from introspection, with `__agent_notes__()` from every class in the MRO appended automatically. If `__agent_help__()` raises, falls back to the auto-generated path (which does include notes).
+- For classes and instances: if `__agent_help__()` is defined (via mixin or duck-typing), it is called and its return value is used verbatim — duck-typed implementations are responsible for their own formatting and notes are NOT auto-appended. If such a class also defines `__agent_notes__()`, a `UserWarning` is emitted because those notes are silently dropped (fold them into `__agent_help__()`, or drop the custom `__agent_help__()` to use the auto-doc path). Otherwise, auto-generated docs are produced from introspection, with `__agent_notes__()` from every class in the MRO appended automatically. If `__agent_help__()` raises, falls back to the auto-generated path (which does include notes).
 - For modules: if the module defines a `__agent_help__` attribute (callable or string), it is used. Otherwise, auto-generated docs are produced from the module docstring and its public functions and classes. When the module defines `__all__`, that list is the authoritative public API (so re-exported symbols are included); otherwise public members are discovered by introspection, skipping private names and anything defined outside the module.
 
 ## License
