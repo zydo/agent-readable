@@ -388,6 +388,33 @@ def test_agent_help_method_with_annotated_self():
     assert "self" not in public_api
 
 
+def test_agent_help_method_positional_only_self_drops_slash():
+    """Regression: a positional-only ``self`` must not leave a dangling ``/``."""
+
+    class PosOnlySelf:
+        """Test class."""
+
+        def backup(self, /, target, *, pages=-1):
+            """Back up to target."""
+
+    result = agent_help(PosOnlySelf)
+    assert "`backup(target, *, pages=-1)`" in result
+    assert "(/, target" not in result
+
+
+def test_agent_help_method_keeps_remaining_positional_only():
+    """A positional-only marker is kept when a positional-only param remains."""
+
+    class KeepsSlash:
+        """Test class."""
+
+        def at(self, index, /, default=None):
+            """Look up by index."""
+
+    result = agent_help(KeepsSlash)
+    assert "`at(index, /, default=None)`" in result
+
+
 # -- Edge-case coverage (tested through public API only) ---------------------
 
 
@@ -440,6 +467,23 @@ def test_agent_help_method_with_broken_signature():
 
     result = agent_help(BadSig)
     assert "method" in result
+    assert "(...)" in result
+
+
+def test_agent_help_staticmethod_with_broken_signature():
+    """Staticmethods route through _safe_signature; bad signatures fall back."""
+
+    class BadStaticSig:
+        """Test class."""
+
+        @staticmethod
+        def helper():
+            """A static helper."""
+
+    BadStaticSig.helper.__signature__ = "not a signature"  # type: ignore[attr-defined]
+
+    result = agent_help(BadStaticSig)
+    assert "helper" in result
     assert "(...)" in result
 
 

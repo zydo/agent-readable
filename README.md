@@ -164,14 +164,14 @@ An agent-friendly wrapper around sqlite3.Connection.
 
 ## Public API
 
-- `backup(/, target, *, pages=-1, progress=None, name='main', sleep=0.25)` method: Makes a backup of the database.
+- `backup(target, *, pages=-1, progress=None, name='main', sleep=0.25)` method: Makes a backup of the database.
 - ...
-- `close(/)` method: Close the database connection.
-- `commit(/)` method: Commit any pending transaction to the database.
+- `close()` method: Close the database connection.
+- `commit()` method: Commit any pending transaction to the database.
 - ...
 - `execute(...)` method: Executes an SQL statement.
 - ...
-- `rollback(/)` method: Roll back to the start of any pending transaction.
+- `rollback()` method: Roll back to the start of any pending transaction.
 - ...
 
 ## Agent usage rules

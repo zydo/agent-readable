@@ -357,9 +357,10 @@ def _collect_public_api(cls: type) -> list[str]:
         else:
             continue
 
-        sig = _safe_signature(fn)
-        if (kind == "method" or kind == "classmethod") and sig != "(...)":
-            sig = _strip_first_param(sig)
+        if kind in ("method", "classmethod"):
+            sig = _signature_without_first_param(fn)
+        else:
+            sig = _safe_signature(fn)
         summary = _first_doc_line(fn)
 
         line = f"- `{name}{sig}` {kind}"
@@ -378,27 +379,20 @@ def _safe_signature(obj: Any) -> str:
         return "(...)"
 
 
-def _strip_first_param(sig: str) -> str:
-    """Strip the first parameter (``self`` / ``cls``) from a signature string.
+def _signature_without_first_param(fn: Any) -> str:
+    """Render ``fn``'s signature with its leading ``self``/``cls`` removed.
 
-    Input is always produced by ``inspect.signature(...)`` and therefore starts
-    with ``(`` and contains a balanced closing ``)``.
+    Dropping the parameter through the ``Signature`` object instead of by string
+    surgery keeps positional-only markers correct: a positional-only ``self`` no
+    longer leaves a dangling ``/`` (e.g. ``(self, /, target)`` -> ``(target)``).
+    Return annotations are preserved automatically.
     """
-    rest = sig[1:]  # drop leading "("
-    depth = 0
-    for i, ch in enumerate(rest):
-        if ch in "([":
-            depth += 1
-        elif ch in ")]":
-            if depth > 0:
-                depth -= 1
-            else:
-                return "()" + rest[i + 1 :]
-        elif ch == "," and depth == 0:
-            return "(" + rest[i + 1 :].lstrip()
-    return (
-        "()"  # pragma: no cover -- unreachable: inspect.signature always closes parens
-    )
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return "(...)"
+    params = list(sig.parameters.values())
+    return str(sig.replace(parameters=params[1:]))
 
 
 def _first_doc_line(obj: Any) -> str:
