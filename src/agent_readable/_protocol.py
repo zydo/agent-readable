@@ -173,17 +173,7 @@ def _module_doc(module: types.ModuleType) -> str:
 
 def _collect_module_api(module: types.ModuleType) -> list[str]:
     lines: list[str] = []
-    mod_name = module.__name__
-    for name, obj in inspect.getmembers(module):
-        if name.startswith("_"):
-            continue
-        obj_module = getattr(obj, "__module__", None)
-        if (
-            obj_module is not None
-            and obj_module != mod_name
-            and not obj_module.startswith(mod_name + ".")
-        ):
-            continue
+    for name, obj in _module_members(module):
         if inspect.isclass(obj):
             summary = _first_doc_line(obj)
             line = f"- `{name}` class"
@@ -197,9 +187,46 @@ def _collect_module_api(module: types.ModuleType) -> list[str]:
             if summary:
                 line += f": {summary}"
             lines.append(line)
-        elif isinstance(obj, types.ModuleType):
-            continue
     return lines
+
+
+def _module_members(module: types.ModuleType) -> list[tuple[str, Any]]:
+    """Return the ``(name, obj)`` pairs that make up a module's public surface.
+
+    A module's ``__all__`` is the authoritative export list, so when it is
+    defined those names win verbatim — including symbols re-exported from other
+    modules (``from other import Foo``), which the ``__module__`` heuristic below
+    would otherwise discard. Without ``__all__`` we fall back to the heuristic:
+    skip private names and anything defined outside this module or its
+    submodules.
+    """
+    explicit = getattr(module, "__all__", None)
+    if explicit is not None:
+        members: list[tuple[str, Any]] = []
+        for name in explicit:
+            if not isinstance(name, str):
+                continue
+            try:
+                members.append((name, getattr(module, name)))
+            except AttributeError:
+                continue
+        members.sort(key=lambda item: item[0])
+        return members
+
+    mod_name = module.__name__
+    members = []
+    for name, obj in inspect.getmembers(module):
+        if name.startswith("_"):
+            continue
+        obj_module = getattr(obj, "__module__", None)
+        if (
+            obj_module is not None
+            and obj_module != mod_name
+            and not obj_module.startswith(mod_name + ".")
+        ):
+            continue
+        members.append((name, obj))
+    return members
 
 
 def _function_doc(fn: Any) -> str:

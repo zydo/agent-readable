@@ -576,6 +576,89 @@ def test_agent_help_module_excludes_submodules():
     assert "submod" not in result
 
 
+def test_agent_help_module_all_includes_reexported_symbol():
+    """__all__ is authoritative: a symbol re-exported from another module shows."""
+    mod = _make_module("mymod", "A module.")
+
+    class Foo:
+        """A re-exported class."""
+
+    Foo.__module__ = "external_lib"  # simulate `from external_lib import Foo`
+    mod.Foo = Foo  # type: ignore[attr-defined]
+    mod.__all__ = ["Foo"]  # type: ignore[attr-defined]
+
+    result = agent_help(mod)
+    assert "`Foo` class" in result
+    assert "A re-exported class." in result
+
+
+def test_agent_help_module_all_restricts_to_listed_names():
+    """When __all__ is defined, public members not listed are excluded."""
+    mod = _make_module("mymod", "A module.")
+
+    def shown(x: int) -> int:
+        """Shown function."""
+        return x
+
+    def hidden():  # noqa: S1186
+        """Hidden function."""
+
+    shown.__module__ = "mymod"
+    hidden.__module__ = "mymod"
+    mod.shown = shown  # type: ignore[attr-defined]
+    mod.hidden = hidden  # type: ignore[attr-defined]
+    mod.__all__ = ["shown"]  # type: ignore[attr-defined]
+
+    result = agent_help(mod)
+    assert "shown" in result
+    assert "hidden" not in result
+
+
+def test_agent_help_module_all_skips_missing_names():
+    """Names in __all__ that don't resolve are skipped, not raised."""
+    mod = _make_module("mymod", "A module.")
+
+    class Real:
+        """Real class."""
+
+    Real.__module__ = "mymod"
+    mod.Real = Real  # type: ignore[attr-defined]
+    mod.__all__ = ["Real", "does_not_exist"]  # type: ignore[attr-defined]
+
+    result = agent_help(mod)
+    assert "`Real` class" in result
+    assert "does_not_exist" not in result
+
+
+def test_agent_help_module_all_ignores_non_string_entries():
+    """Non-string entries in __all__ are skipped without error."""
+    mod = _make_module("mymod", "A module.")
+
+    class Real:
+        """Real class."""
+
+    Real.__module__ = "mymod"
+    mod.Real = Real  # type: ignore[attr-defined]
+    mod.__all__ = ["Real", 123]  # type: ignore[attr-defined,list-item]
+
+    result = agent_help(mod)
+    assert "`Real` class" in result
+
+
+def test_agent_help_module_heuristic_excludes_foreign_symbol():
+    """Without __all__, symbols defined in another module are filtered out."""
+    mod = _make_module("mymod", "A module.")
+
+    class Foreign:
+        """Imported from elsewhere."""
+
+    Foreign.__module__ = "other_lib"
+    mod.Foreign = Foreign  # type: ignore[attr-defined]
+
+    result = agent_help(mod)
+    assert "Foreign" not in result
+
+
 def test_agent_help_module_custom_callable():
     mod = _make_module("mymod")
 

@@ -450,20 +450,13 @@ operating systems.
 
 ## Public API
 
-- `DirEntryInfo` class: Implementation of pathlib.types.PathInfo that provides status information by querying a wrapped os.DirEntry object. Don't try to construct it yourself.
 - `Path` class: PurePath subclass that can make system calls.
-- `PathInfo` class: Implementation of pathlib.types.PathInfo that provides status information for POSIX paths. Don't try to construct it yourself.
 - `PosixPath` class: Path subclass for non-Windows systems.
 - `PurePath` class: Base class for manipulating paths without I/O.
 - `PurePosixPath` class: PurePath subclass for non-Windows systems.
 - `PureWindowsPath` class: PurePath subclass for Windows systems.
 - `UnsupportedOperation` class: An exception that is raised when an unsupported operation is attempted.
 - `WindowsPath` class: Path subclass for Windows systems.
-- `copy_info(info, target, follow_symlinks=True)` function: Copy metadata from the given PathInfo to the given local path.
-- `copyfileobj(source_f, target_f)` function: Copy data from file-like object source_f to file-like object target_f.
-- `ensure_different_files(source, target)` function: Raise OSError(EINVAL) if both paths refer to the same file.
-- `ensure_distinct_paths(source, target)` function: Raise OSError(EINVAL) if the other path is within this path.
-- `magic_open(path, mode='r', buffering=-1, encoding=None, errors=None, newline=None)` function: Open the file pointed to by this path and return a file object, as the built-in open() function does.
 
 ## Agent usage rules
 
@@ -473,7 +466,7 @@ operating systems.
 - If usage is ambiguous, prefer the simplest documented usage pattern.
 ````
 
-Modules support less customization than classes — there is no mixin inheritance or `__agent_notes__()`. You can override the auto-generated output entirely by setting a module-level `__agent_help__` attribute (callable or string), but this is discouraged since it replaces the auto-generated summary — signatures, purpose, and public API listing are all lost. Prefer clear docstrings on the module and its functions/classes instead.
+Modules support less customization than classes — there is no mixin inheritance or `__agent_notes__()`. You can override the auto-generated output entirely by setting a module-level `__agent_help__` attribute (callable or string), but this is discouraged since it replaces the auto-generated summary — signatures, purpose, and public API listing are all lost. Prefer clear docstrings on the module and its functions/classes instead. If the module defines `__all__`, that list is honored as the authoritative public API — including symbols re-exported from other modules.
 
 You can also pass a function or method directly — `agent_help()` renders the signature, full docstring, and usage rules. The output is close to `help()` for a single callable; the bigger wins are still on classes and modules.
 
@@ -609,7 +602,7 @@ If a class inherits from `AgentReadableMixin`, coding agents should call `agent_
 Returns a string of agent-oriented documentation for a class, instance, or module.
 
 - For classes and instances: if `__agent_help__()` is defined (via mixin or duck-typing), it is called and its return value is used verbatim — duck-typed implementations are responsible for their own formatting and notes are NOT auto-appended. Otherwise, auto-generated docs are produced from introspection, with `__agent_notes__()` from every class in the MRO appended automatically. If `__agent_help__()` raises, falls back to the auto-generated path (which does include notes).
-- For modules: if the module defines a `__agent_help__` attribute (callable or string), it is used. Otherwise, auto-generated docs are produced from the module docstring and its public functions and classes.
+- For modules: if the module defines a `__agent_help__` attribute (callable or string), it is used. Otherwise, auto-generated docs are produced from the module docstring and its public functions and classes. When the module defines `__all__`, that list is the authoritative public API (so re-exported symbols are included); otherwise public members are discovered by introspection, skipping private names and anything defined outside the module.
 
 ## License
 
