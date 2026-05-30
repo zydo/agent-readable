@@ -1,8 +1,7 @@
-***
-
+---
 name: agent-readable
-description: Use agent\_readable to get authoritative usage guidance for Python classes, modules, functions, and methods before writing code against them, and to make new Python APIs agent-readable. Activate when writing or modifying Python code that calls into a class, module, function, or method from any library, OR when adding/changing a public Python API. Covers calling `agent_help(obj)` for structured docs + behavioral rules, and authoring docstrings + `__agent_notes__()` so usage rules travel with the code.
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+description: Use agent_readable to get authoritative usage guidance for Python classes, modules, functions, and methods before writing code against them, and to make new Python APIs agent-readable. Activate when writing or modifying Python code that calls into a class, module, function, or method from any library, OR when adding/changing a public Python API. Covers calling `agent_help(obj)` for structured docs + behavioral rules, and authoring docstrings + `__agent_notes__()` so usage rules travel with the code.
+---
 
 # agent-readable
 
@@ -17,6 +16,10 @@ This skill teaches you two jobs:
    or method, call `agent_help(target)` and use the output as the source of truth.
 2. **Author** — when adding or modifying a public Python API, make it
    agent-readable so future agents get correct usage on the first try.
+
+**Current language support:** Python 3.10+. Counterparts in other languages are
+on the roadmap; when they ship, this skill will gain sections for them and the
+same trigger will fan out across languages.
 
 ## When to activate this skill
 

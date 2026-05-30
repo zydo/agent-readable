@@ -27,6 +27,6 @@ if __name__ == "__main__":
     print()
     print("=" * 72)
     print()
-    print("=== agent_help(logging.Logger) — curated public API, structured sections ===")
+    print("=== agent_help(logging.Logger) — curated, structured public API ===")
     print()
     print(agent_help(logging.Logger))
