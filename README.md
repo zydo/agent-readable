@@ -403,13 +403,15 @@ Output:
 
 ## Purpose
 
-Example: Using agent_help() on modules.
+Example: Using agent_help() on modules, functions, and methods.
 
-Demonstrates both shapes of module support:
+Demonstrates non-class targets:
   1. A custom module (this file itself).
   2. A stdlib module (pathlib).
+  3. A function (connect, defined below).
+  4. A method (Query.execute, defined below).
 
-Run this file to see both outputs:
+Run this file to see all outputs:
     python examples/modules_and_functions.py
 
 ## Public API
@@ -599,10 +601,11 @@ If a class inherits from `AgentReadableMixin`, coding agents should call `agent_
 
 ### `agent_help(obj)`
 
-Returns a string of agent-oriented documentation for a class, instance, or module.
+Returns a string of agent-oriented documentation for a class, instance, module, function, or method.
 
 - For classes and instances: if `__agent_help__()` is defined (via mixin or duck-typing), it is called and its return value is used verbatim — duck-typed implementations are responsible for their own formatting and notes are NOT auto-appended. If such a class also defines `__agent_notes__()`, a `UserWarning` is emitted because those notes are silently dropped (fold them into `__agent_help__()`, or drop the custom `__agent_help__()` to use the auto-doc path). Otherwise, auto-generated docs are produced from introspection, with `__agent_notes__()` from every class in the MRO appended automatically. If `__agent_help__()` raises, falls back to the auto-generated path (which does include notes).
 - For modules: if the module defines a `__agent_help__` attribute (callable or string), it is used. Otherwise, auto-generated docs are produced from the module docstring and its public functions and classes. When the module defines `__all__`, that list is the authoritative public API (so re-exported symbols are included); otherwise public members are discovered by introspection, skipping private names and anything defined outside the module.
+- For functions and methods (anything `inspect.isroutine` accepts): if the routine defines an `__agent_help__` attribute (callable or string), it is used. Otherwise, auto-generated docs render the signature, full docstring, and usage rules. A bound method's signature drops `self` and a classmethod's drops `cls`. If a callable `__agent_help__` raises, falls back to the auto-generated path.
 
 ## License
 
