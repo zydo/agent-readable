@@ -512,12 +512,9 @@ Outputs agent-oriented documentation for the given class, module, function, or m
 
 ### How does my agent know to call `agent_help()` instead of `help()`?
 
-Today, you tell it. Either:
+Install the agent **skill** that ships in this repo at [`skills/agent-readable/`](skills/agent-readable/). It follows the [Agent Skills open standard](https://agentskills.io) — adopted by Claude Code, Codex CLI (OpenAI), Gemini CLI (Google), GitHub Copilot, Cursor, JetBrains Junie, Goose, OpenCode, and 40+ other tools — so dropping the folder into your agent's skills directory (`~/.claude/skills/`, `~/.codex/skills/`, your editor's equivalent) is enough for the agent to discover it. The skill teaches the agent to install `agent-readable`, call `agent_help(target)` before writing code against a class, module, function, or method, and add `__agent_notes__()` (or improve docstrings) when authoring new public APIs.
 
-- Paste [`AGENT-PROMPT.md`](AGENT-PROMPT.md) into your conversation, or
-- Add it permanently to your repo's `AGENTS.md` / `CLAUDE.md` / `.cursor/rules` / equivalent instruction file.
-
-"You tell it" is the hard part of any new agent protocol. A distributable agent **skill** — published to a skill hub, teaching agents to install `agent_readable`, call `agent_help()` before coding against an annotated class, and make new code agent-readable — is on the roadmap, so the trigger ships as one versioned, discoverable package instead of a snippet copied into every repo's instruction file.
+The folder lives next to the source code for now; a hub-published version (so you can install it through your harness's marketplace) is the next step on the roadmap.
 
 ### How is this different from `AGENTS.md` / `llms.txt` / Cursor rules?
 
@@ -545,7 +542,7 @@ Yes — `agent_help()` falls back to introspection (Example 4). You get a struct
 
 ## Keeping agent docs up to date
 
-Agent docs can go stale when classes change — new methods, changed behavior, removed APIs. Copy [`AGENT-PROMPT.md`](AGENT-PROMPT.md) into your coding agent's conversation, or permanently add it to your repo's `AGENTS.md`, `CLAUDE.md`, `.cursor/rules`, `.trae/rules`, `.github/copilot-instructions.md`, or equivalent instruction file. It tells your coding agent to run `agent_help()` before modifying a class, prefer docstrings over `__agent_notes__()`, and verify that docs stay accurate after changes.
+Agent docs can go stale when classes change — new methods, changed behavior, removed APIs. Install the skill at [`skills/agent-readable/`](skills/agent-readable/) into your agent (see the FAQ above for the install). It teaches your agent to run `agent_help()` before modifying a class, prefer docstrings over `__agent_notes__()`, and verify that the output stays accurate after changes.
 
 ## The `__agent_help__` protocol
 

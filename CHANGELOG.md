@@ -16,11 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `agent_help()` now emits a `UserWarning` when a class defines both a custom
   `__agent_help__()` and `__agent_notes__()`, since the notes are silently
   dropped in that case.
+- Agent Skill at `skills/agent-readable/SKILL.md` following the
+  [Agent Skills open standard](https://agentskills.io). Portable across
+  Claude Code, Codex CLI (OpenAI), Gemini CLI (Google), GitHub Copilot, Cursor,
+  JetBrains Junie, Goose, OpenCode, and 40+ other adopters — drop the folder
+  into your agent's skills directory and it teaches the agent to call
+  `agent_help()` and to author new APIs with `__agent_notes__()`. Supersedes
+  `AGENT-PROMPT.md` as the recommended way to wire up coding agents.
 
 ### Fixed
 
 - Method signatures with a positional-only `self` no longer render a dangling
   `/` (e.g. `backup(/, target)` now renders as `backup(target)`).
+
+### Removed
+
+- `AGENT-PROMPT.md` (superseded by the agent skill at
+  `skills/agent-readable/SKILL.md`).
 
 ## [0.1.1] - 2026-05-11
 
