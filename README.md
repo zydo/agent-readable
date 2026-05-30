@@ -1,6 +1,6 @@
 # agent-readable
 
-A lightweight Python protocol for exposing agent-oriented documentation from classes and modules.
+Stop coding agents from hallucinating your library's API. Ship the usage rules — lifecycle order, pre-conditions, anti-patterns — right next to your code.
 
 <!-- markdownlint-disable MD033 -->
 <p align="center">
@@ -517,7 +517,7 @@ Today, you tell it. Either:
 - Paste [`AGENT-PROMPT.md`](AGENT-PROMPT.md) into your conversation, or
 - Add it permanently to your repo's `AGENTS.md` / `CLAUDE.md` / `.cursor/rules` / equivalent instruction file.
 
-"You tell it" is the hard part of any new agent protocol. An MCP server (so MCP-aware clients auto-discover the tool) is on the roadmap.
+"You tell it" is the hard part of any new agent protocol. A distributable agent **skill** — published to a skill hub, teaching agents to install `agent_readable`, call `agent_help()` before coding against an annotated class, and make new code agent-readable — is on the roadmap, so the trigger ships as one versioned, discoverable package instead of a snippet copied into every repo's instruction file.
 
 ### How is this different from `AGENTS.md` / `llms.txt` / Cursor rules?
 
@@ -563,13 +563,13 @@ Classes that define a `@classmethod` named `__agent_help__` returning a `str` ar
 
 The two dunders intentionally encode different composition rules:
 
-| Aspect          | `__agent_help__()`                              | `__agent_notes__()`                                                         |
-| --------------- | ----------------------------------------------- | --------------------------------------------------------------------------- |
-| Semantics       | **Replacement** — returned string IS the output | **Additive** — appended to auto-generated docs                              |
-| Composition     | Single class wins (the one closest in MRO)      | Accumulated across the MRO; leaf class wins on conflict (header marks this) |
-| When to use     | Total control over the rendered text            | "Auto-doc + my extra do/don't rules"                                        |
+| Aspect          | `__agent_help__()`                              | `__agent_notes__()`                                                                           |
+| --------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Semantics       | **Replacement** — returned string IS the output | **Additive** — appended to auto-generated docs                                                |
+| Composition     | Single class wins (the one closest in MRO)      | Accumulated across the MRO; leaf class wins on conflict (header marks this)                   |
+| When to use     | Total control over the rendered text            | "Auto-doc + my extra do/don't rules"                                                          |
 | Skipped when    | (always called if defined)                      | Skipped (with a `UserWarning`) when a custom `__agent_help__` is present (it owns the output) |
-| Mixin required? | No — duck-typed classmethod is enough           | No — defining `__agent_notes__` on any class is enough                      |
+| Mixin required? | No — duck-typed classmethod is enough           | No — defining `__agent_notes__` on any class is enough                                        |
 
 ## Class docstring hints
 
