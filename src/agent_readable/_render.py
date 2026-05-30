@@ -12,7 +12,7 @@ from ._model import HelpDoc, Member, Notes
 
 
 def render_markdown(doc: HelpDoc) -> str:
-    """Render a :class:`HelpDoc` as the compact Markdown ``agent_help()`` returns.
+    """Render a :class:`HelpDoc` as the structured Markdown ``agent_help()`` returns.
 
     Sections are emitted in a fixed order and only when their data is present,
     so a class (constructor + notes), a module (neither), and a function

@@ -34,7 +34,7 @@ class Connection(sqlite3.Connection, AgentReadableMixin):
 
 
 if __name__ == "__main__":
-    print("=== help(sqlite3.Connection) — verbose, not agent-friendly ===")
+    print("=== help(sqlite3.Connection) — every inherited dunder and MRO detail ===")
     print()
     os.environ["PAGER"] = "cat"
     help(sqlite3.Connection)  # NOSONAR

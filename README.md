@@ -13,16 +13,9 @@ Stop coding agents from hallucinating your library's API. Ship the usage rules �
 
 AI coding agents recognize established libraries from their training data, but they hallucinate when APIs change, when libraries are new, or when correct usage depends on rules that aren't visible from the API surface — pre-conditions, lifecycle order, anti-patterns, *"use `call()` for non-streaming, `stream()` for streaming."*
 
-Today there's nowhere to put those rules where an agent will reliably find them. Docstrings document the API surface, not behavioral rules. `AGENTS.md` and `llms.txt` work at project granularity, drift fast, and don't travel with refactors. `help()` is verbose and only describes interfaces.
+Today there's nowhere to put those rules where an agent will reliably find them. Docstrings document the API surface, not behavioral rules. `AGENTS.md` and `llms.txt` work at project granularity, drift fast, and don't travel with refactors. `help()` only describes interfaces — and mixes inherited dunders and MRO detail in with the methods you actually want to use.
 
-`agent-readable` adds two dunders — `__agent_help__` (full custom output) and `__agent_notes__` (additive guidance that accumulates across inheritance) — that live next to the code. Library authors annotate once; any agent that calls `agent_help(cls)` gets the rules.
-
-```text
-help(logging.Logger)        217 lines — every inherited method, dunder, and MRO detail.
-agent_help(logging.Logger)   56 lines — structured sections + any author notes.
-```
-
-The compactness is a side effect; the structure is the point.
+`agent-readable` adds two dunders — `__agent_help__` (full custom output) and `__agent_notes__` (additive guidance that accumulates across inheritance) — that live next to the code. Library authors annotate once; any agent that calls `agent_help(cls)` gets a curated public-API list with current signatures, the class's behavioral rules attached, and no inherited-dunder or MRO noise to wade through.
 
 ## Installation
 
@@ -105,12 +98,15 @@ Reads a value from a hardware sensor.
 
 ## Why it matters
 
-`help()` documents the **API surface** — what each method does. But agents fail less often on *what methods exist* than on *how to use them*: lifecycle order, pre-conditions, anti-patterns, "this method is for X, that one for Y." Those rules don't fit in docstrings (which describe single methods) and don't belong in a project-level `AGENTS.md` (which describes whole repos). They're class-level, and they need to travel with refactors.
+`agent_help()` covers two failure modes agents hit on real APIs:
 
-`agent_help()` gives them a home next to the code:
+1. **What exists.** The `## Public API` section is a curated list of current signatures pulled from runtime introspection — no hallucinated methods, no stale signatures from training data, no private members leaking in. If the agent reads this list first, it stops inventing methods that don't exist and stops calling real ones with the wrong arguments.
+2. **How to use it correctly.** Lifecycle order, pre-conditions, anti-patterns, *"this method is for X, that one for Y."* These don't fit in any single method's docstring and don't belong in a project-level `AGENTS.md` (which describes whole repos). They're class-level, and they need to travel with refactors. `__agent_notes__()` gives them a home next to the code.
+
+A concrete contrast:
 
 ```
-# help(sqlite3.Connection) — 200+ lines of terminal output:
+# help(sqlite3.Connection) — every inherited dunder, in source order:
 Help on class Connection in module sqlite3:
 
 class Connection(builtins.object)
@@ -124,10 +120,11 @@ class Connection(builtins.object)
  |  ...
  |  backup(self, target, /, *, pages=-1, progress=None, ...)
  |  blobopen(self, table, column, rowid, /, *, readonly=False, ...)
- |  ... (continues for 200+ more lines)
+ |  ... (no curation, no behavioral rules, no signal that backup() needs an
+ |        open target connection before being called)
 ```
 
-`agent_help(sqlite3.Connection)` produces a scannable summary instead — see Example 1 below. Notes from `__agent_notes__()` accumulate across inheritance. Class docs travel with the code in commits, reviews, and refactors. Drift gets caught in code review, not weeks later in a sidecar file.
+`agent_help(sqlite3.Connection)` produces a curated public-API list with current signatures and any class-level rules attached — see Example 1 below. Notes from `__agent_notes__()` accumulate across inheritance. Class docs travel with the code in commits, reviews, and refactors. Drift gets caught in code review, not weeks later in a sidecar file.
 
 The examples below demonstrate four ways to use `agent_help()`.
 
@@ -340,7 +337,7 @@ print(agent_help(RateLimiter))
 
 ## Example 4: Any class — no setup required
 
-Even without the mixin or duck-typing, `agent_help()` still generates compact, structured Markdown from introspection. If the class (or any class in its MRO) defines `__agent_notes__()`, those notes are auto-appended too — no mixin required. The output is still more agent-friendly than `help()`.
+Even without the mixin or duck-typing, `agent_help()` still generates structured Markdown from introspection — a curated public-API list with current signatures, free of inherited dunders and MRO clutter. If the class (or any class in its MRO) defines `__agent_notes__()`, those notes are auto-appended too — no mixin required.
 Full example: [`examples/any_class.py`](examples/any_class.py).
 
 ```python
@@ -350,7 +347,7 @@ from agent_readable import agent_help
 print(agent_help(logging.Logger))
 ```
 
-`help(logging.Logger)` produces **217 lines** of output. `agent_help(logging.Logger)` produces a compact, scannable summary:
+Compare what `agent_help(logging.Logger)` returns to what `help(logging.Logger)` does — the former lists only the public methods you'd actually call, with their current signatures and docstring summaries:
 
 ````
 # Logger

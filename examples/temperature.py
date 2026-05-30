@@ -73,7 +73,7 @@ class CalibratedSensor(Sensor):
 
 
 if __name__ == "__main__":
-    print("=== help(CalibratedSensor) — verbose, not agent-friendly ===")
+    print("=== help(CalibratedSensor) — every inherited dunder and MRO detail ===")
     print()
     os.environ["PAGER"] = "cat"
     help(CalibratedSensor)  # NOSONAR
