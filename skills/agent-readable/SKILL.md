@@ -1,35 +1,46 @@
 ---
 name: agent-readable
-description: Use agent_readable to get authoritative usage guidance for Python classes, modules, functions, and methods before writing code against them, and to make new Python APIs agent-readable. Activate when writing or modifying Python code that calls into a class, module, function, or method from any library, OR when adding/changing a public Python API. Covers calling `agent_help(obj)` for structured docs + behavioral rules, and authoring docstrings + `__agent_notes__()` so usage rules travel with the code.
+description: Use agent_readable to inspect the current runtime API and any author-supplied usage rules for a Python class, module, function, or method before writing code against it — and to make your own public Python APIs agent-readable. Activate when writing, modifying, or refactoring Python that calls into an API you don't already know cold — typically project-local or third-party code that is stateful, version-sensitive, poorly documented, has lifecycle or ordering constraints, or exposes several similar entrypoints that are easy to confuse. Also activate when adding or changing a public Python API meant for reuse, or when the user mentions agent_help, __agent_notes__, AgentReadableMixin, AgentReadable, or the agent-readable library. Skip it for trivial builtins, standard-library usage you already know, routine calls into familiar common libraries (e.g. a basic pandas read or a simple requests GET), and pure algorithmic code with no API-specific behavior.
 ---
 
 # agent-readable
 
 `agent-readable` is a tiny Python library (`pip install agent-readable`, zero
-runtime deps, Python 3.10+) that gives any class, module, function, or method a
-structured, agent-oriented "usage guide" — the canonical answer to *how do I
-correctly use this?* — produced by one call: `agent_help(obj)`.
+runtime deps, Python 3.10+). Its one job: `agent_help(obj)` returns a structured,
+agent-oriented usage guide for a class, module, function, or method. How much you
+get depends on the target — at minimum the **current runtime signature and public
+API** (read live, so more reliable than training data); when the author opted in
+(docstrings + `__agent_notes__()`), also **behavioral rules** a signature can't
+express. Signatures are a fact read off the code; notes are a maintained human
+claim. Don't treat the output as a complete behavioral contract unless the author
+supplied one.
 
-This skill teaches you two jobs:
+## Language support
 
-1. **Consume** — before writing Python code that uses a class, module, function,
-   or method, call `agent_help(target)` and use the output as the source of truth.
-2. **Author** — when adding or modifying a public Python API, make it
-   agent-readable so future agents get correct usage on the first try.
+Python 3.10+. Other languages are on the roadmap.
 
-**Current language support:** Python 3.10+. Counterparts in other languages are
-on the roadmap; when they ship, this skill will gain sections for them and the
-same trigger will fan out across languages.
+## When to activate
 
-## When to activate this skill
+Call `agent_help(target)` before writing code against an API where guessing the
+usage could plausibly be wrong — concretely, when:
 
-* The user asks you to write, modify, or refactor Python code that calls into a
-  class, module, function, or method (from a third-party library or from this
-  project).
-* The user asks you to add or change a public Python class, module, or function
-  (especially one other code or other agents will use).
-* The user mentions `agent_help`, `__agent_notes__`, `AgentReadableMixin`, the
-  `AgentReadable` protocol, or the `agent-readable` library by name.
+* The target is **project-local or third-party code you don't already know cold**.
+* It's **stateful, version-sensitive, poorly documented, has lifecycle or
+  ordering constraints, or exposes several similar entrypoints** that are easy to
+  confuse.
+* You're **adding or changing a public Python API** meant for reuse by humans or
+  agents.
+* The user asks about `agent_help`, `__agent_notes__`, `AgentReadableMixin`,
+  `AgentReadable`, or the `agent-readable` library.
+
+## When not to activate
+
+Skip it — just write the code — for trivial builtins (`len`, `dict`, …),
+standard-library usage you already know, **routine calls into familiar common
+libraries** (a basic pandas read, a simple `requests` GET), and pure algorithmic
+code with no external or project-specific API. One `agent_help()` call is cheap,
+but consulting the skill for every snippet adds noise; reserve it for APIs where
+getting usage wrong is plausible.
 
 ## Install
 
@@ -37,16 +48,10 @@ same trigger will fan out across languages.
 pip install agent-readable      # or: uv add agent-readable
 ```
 
-Python 3.10+. No runtime dependencies. The library exposes one top-level function
-(`agent_help`), one protocol (`AgentReadable`), and one optional mixin
-(`AgentReadableMixin`).
+Python 3.10+, no runtime deps. Exposes `agent_help`, the `AgentReadable`
+protocol, and the optional `AgentReadableMixin`.
 
-## Job 1 — Consume: call `agent_help(target)` first
-
-**Before writing code against a Python target, always call `agent_help(target)`.**
-Even if the target does *not* opt in: `agent_help()` falls back to introspection
-and returns a structured, current-signature public-API listing — strictly better
-than guessing from training data.
+## Job 1 — Consume: inspect before you call
 
 ```python
 from agent_readable import agent_help
@@ -63,46 +68,64 @@ From a coding-agent shell:
 python -c "from agent_readable import agent_help; import target_lib; print(agent_help(target_lib.SomeClass))"
 ```
 
-### How to read the output
+## Safety: imports, side effects, and environment mismatch
 
-`agent_help()` returns Markdown with these sections (a subset appears depending
-on the target):
+`agent_help()` usually has to **import the target module**, and import-time code
+runs — it may open connections, touch files or the network, read env vars, do
+heavy init, or rarely something destructive. So:
 
-* `# <name>` and `## Purpose` — the docstring summary.
-* `## Constructor` / `## Signature` — the **current** signature (the source of
-  truth, beats anything in training data).
-* `## Public API` — every public member with current signatures. Treat this as
-  the authoritative list; do not call methods not listed here.
-* `## Agent usage rules` — generic rules (prefer the public API, no private
-  names, etc.).
-* `## Notes from class <X>` — **load-bearing** class-specific behavioral rules:
-  lifecycle order, pre-conditions, anti-patterns. If a note says *"call
-  `calibrate()` once before `read()`"*, honor it. If multiple `Notes from class`
-  sections appear, the leaf class wins on conflict (the header marks this).
+* Run it only in a **trusted project environment**.
+* Don't blindly import untrusted, expensive, destructive, or
+  environment-dependent modules just to get help.
+* If import is unsafe, impossible, or too expensive, read **source, tests,
+  existing docs, and type hints**, or ask the user — don't run arbitrary repo
+  code to obtain help when the repo isn't trusted.
 
-If you are unsure how to use a target, run `agent_help()` again — it is cheap and
-the docstrings/notes are the canonical source.
+**Environment and version.** The output reflects the object **as installed here,
+now**. If your code will run elsewhere (prod, CI, the user's runtime), verify the
+package version there rather than assuming the inspected API matches; when it
+matters, check lockfiles, package metadata, installed versions, or source.
 
-## Job 2 — Author: make new Python APIs agent-readable
+## How to interpret the output
 
-Default to **better docstrings** first; only reach for the dunders when
-docstrings cannot compose the rule.
+`agent_help()` returns Markdown; read each section with the right trust level:
 
-### 2a. Docstrings are the primary surface
+| Section | Source | How to treat it |
+|---|---|---|
+| `## Signature` / `## Constructor` | live introspection | **Ground truth** for the current call shape. Prefer over memory. |
+| `## Public API` | live introspection (private names filtered) | Authoritative for *which names exist*; does **not** prove a method behaves as named. |
+| `## Purpose`, per-method summaries | docstrings | As accurate as the author's docstrings. |
+| `## Notes from class <X>` | `__agent_notes__()` | **Behavioral guidance, if supplied and maintained** — a claim, not a guarantee. |
 
-`agent_help()` already extracts docstrings: the class docstring becomes
-`## Purpose`, and each method's first paragraph becomes its `## Public API`
-summary. So the bar for a good docstring here is the same as for any
-well-documented library: concise summary line, then params/returns/raises if
-nontrivial. Keep per-method behavior in the method's docstring — that is where it
-stays attached through refactors.
+* **Annotated vs. fallback.** With `__agent_notes__()` or custom metadata, treat
+  the output as behavioral guidance. Introspection-only output is a *current
+  runtime inventory* (signatures, public members, docstrings): better than stale
+  training data, but it won't reveal hidden lifecycle constraints, side effects,
+  performance traps, async/streaming rules, thread-safety, or invalid parameter
+  combinations. For those, read source/tests or ask.
+* **Public API.** `## Public API` lists members per the library's filtering plus
+  live inspection. Call only what's listed; avoid private names unless the user
+  asks or the codebase already relies on them.
+* **Conflicts.** If a note contradicts a visible signature, trust the signature.
+  Among multiple `## Notes from class` sections, the **leaf class wins** (the
+  header marks this).
 
-### 2b. Add `__agent_notes__()` only for cross-method behavioral rules
+## Job 2 — Author: make your Python APIs agent-readable
 
-When a rule does not fit in any single method's docstring — lifecycle order
-across methods, pre-conditions, anti-patterns ("use `call()` for non-streaming,
-`stream()` for streaming"), do/don't lists — put it on the **class** as a
-`classmethod` named `__agent_notes__()`:
+Preference order: **good docstrings → focused `__agent_notes__()` → (rarely) a
+custom `__agent_help__()`.**
+
+### Docstrings first
+
+`agent_help()` reads docstrings directly: the class docstring becomes
+`## Purpose`, each method's first paragraph its `## Public API` summary. Same bar
+as any well-documented library — concise summary line, then params/returns/raises
+when nontrivial. Per-method behavior stays in that method's docstring, where it
+survives refactors.
+
+### `__agent_notes__()` — cross-method rules only
+
+For rules that span methods, add a `classmethod` on the **class**:
 
 ```python
 class Sensor:
@@ -116,68 +139,86 @@ class Sensor:
     def __agent_notes__(cls) -> str:
         return """
 ## Do
-
-- Call `calibrate()` once during setup, before `read()`.
+- Call `calibrate()` once during setup, before the first `read()`.
 
 ## Do not
-
 - Do not call `read()` before `calibrate()` on first use.
 """
 ```
 
-Facts about `__agent_notes__()` worth knowing:
+**Belongs here:** lifecycle/ordering, preconditions, cleanup, sync vs async,
+streaming vs non-streaming, retry/backoff/cooldown, do/don't lists. **Doesn't:**
+per-method behavior (→ the method's docstring), and duplicated docstring content.
 
-* **Accumulates across the MRO.** Every class in the inheritance chain that
-  defines its own `__agent_notes__()` contributes a section to `agent_help()`'s
-  output. The leaf class is marked as taking precedence on conflict.
-* **Do not call `super().__agent_notes__()`** — collection is automatic.
-* **No mixin required.** Defining `__agent_notes__` on any class is enough.
-  Monkey-patching also works for classes you do not own:
-  ```python
-  ThirdPartyClass.__agent_notes__ = classmethod(lambda cls: "...")
-  ```
-* **Optional `AgentReadableMixin`.** Inheriting from
-  `agent_readable.AgentReadableMixin` is purely a convenience for type-checking
-  and IDE hints — `agent_help()` works on plain classes too.
+Mechanics: notes **accumulate across the MRO** (leaf wins on conflict); **don't
+call `super()`** (collection is automatic); no mixin required
+(`AgentReadableMixin` only adds type-checking/IDE hints).
 
-### 2c. Almost never define a custom `__agent_help__()`
+**Monkey-patching** classes you don't own works
+(`ThirdPartyClass.__agent_notes__ = classmethod(lambda cls: "...")`), but keep it
+to **local adapters, test fixtures, or controlled runtime contexts**. Don't ship
+**global** patches against third-party classes in reusable library code unless
+you fully control the runtime; document why the patch exists and keep it next to
+the integration code.
 
-`__agent_help__()` **replaces** the entire auto-generated output. Use it only
-when you have a hand-formatted help string you genuinely want to ship verbatim.
-In every other case, let the auto-doc generate from your class + docstrings +
-`__agent_notes__()`.
+#### Make notes verifiable
 
-### 2d. Verify after annotating
+A free-prose note is a docstring in a different place — it rots silently. Anchor
+it to something that **fails a test on drift**:
 
-After adding or changing notes, run:
+1. **Name real members** (`calibrate()`, not "the setup step"), so renames
+   surface via grep and the test below.
+2. **Make examples executable** — a doctest, or a snippet in a docstring /
+   `examples/` file the note points to.
+3. **Ship a contract test:**
+
+   ```python
+   import re, doctest
+   from your_module import Sensor
+
+   def test_agent_notes_reference_real_members():
+       for name in re.findall(r"`(\w+)\(\)`", Sensor.__agent_notes__()):
+           assert hasattr(Sensor, name), f"note references missing member: {name}"
+
+   def test_agent_notes_examples_run():
+       assert doctest.testmod(m=__import__(Sensor.__module__)).failed == 0
+   ```
+
+**Limit:** this catches *name* and *example* drift, not *semantic* drift —
+"calibrate before read" can go wrong while every name stays valid. To close that,
+assert the behavior itself (e.g. that `read()` fails before `calibrate()`). A
+rule worth writing down is usually worth asserting.
+
+### Custom `__agent_help__()` — rarely
+
+It **replaces** the entire auto-generated output. Use only when you have a
+hand-formatted string to ship verbatim; otherwise let the auto-doc compose from
+class + docstrings + `__agent_notes__()`.
+
+### Verify after annotating
 
 ```bash
 python -c "from agent_readable import agent_help; from your_module import YourClass; print(agent_help(YourClass))"
 ```
 
-Check that signatures are correct (you may need to fix type hints), notes appear
-in MRO order with the leaf class marked precedence-winning, and no private
-members leaked into `## Public API`.
+Check signatures are right (fix type hints if not), notes appear in MRO order
+with the leaf winning, and no private members leaked into `## Public API`. Then
+run the contract test.
 
 ## Footguns
 
-* **Do not define both a custom `__agent_help__()` and `__agent_notes__()` on
-  the same class.** A custom `__agent_help__()` owns the full output, so the
-  notes are silently dropped (a `UserWarning` is emitted). Fix it one of two
-  ways: fold the notes into your custom `__agent_help__()`, or remove the
-  custom `__agent_help__()` and let the auto-doc + notes path run.
-* **Do not put per-method instructions in `__agent_notes__()`.** Single-method
-  behavior belongs in that method's docstring, where it stays attached through
-  refactors. `__agent_notes__()` is for rules that span methods.
-* **Do not mix `agent_help()` with `help()`.** `help()` returns hundreds of
-  lines of inherited dunders and MRO detail; `agent_help()` returns a curated,
-  structured guide with behavioral rules attached. Use `agent_help()`.
+* **Never define both a custom `__agent_help__()` and `__agent_notes__()` on one
+  class.** The custom `__agent_help__()` owns the output, so the notes are
+  dropped. The library emits a `UserWarning`, but **don't rely on seeing it** —
+  warnings get swallowed in agent shells, CI, and notebooks. Treat "both defined"
+  as a hard review error.
+* **Prefer `agent_help()` over the built-in `help()`** for agent-facing usage
+  guidance. `help()` is still fine for human debugging, but it's verbose and
+  isn't structured around behavioral rules.
 
 ## The one rule
 
-> Before writing or modifying Python code that uses an external class, module,
-> function, or method, call `agent_help(target)` and use its output as the
-> canonical usage guide.
-
-That call is cheap, runs in any coding-agent shell, and works on any Python
-object — annotated or not.
+> Before coding against an unfamiliar or risky Python API, call
+> `agent_help(target)`: trust the **signatures**, sanity-check the **notes**,
+> mind **imports and version**. When you author an API, make the notes verifiable
+> so they fail loudly instead of lying quietly.
