@@ -1,6 +1,6 @@
 # agent-readable
 
-Stop coding agents from hallucinating your library's API. Ship the usage rules — lifecycle order, pre-conditions, anti-patterns — right next to your code.
+Stop coding agents from hallucinating Python APIs. `agent_help(target)` reads the live public-API surface off any class, module, function, or method — no author opt-in needed — and optionally returns class-level usage rules (lifecycle order, pre-conditions, anti-patterns) when the library ships them.
 
 <!-- markdownlint-disable MD033 -->
 <p align="center">
@@ -15,7 +15,7 @@ AI coding agents recognize established libraries from their training data, but t
 
 Today there's nowhere to put those rules where an agent will reliably find them. Docstrings document the API surface, not behavioral rules. `AGENTS.md` and `llms.txt` work at project granularity, drift fast, and don't travel with refactors. `help()` only describes interfaces — and mixes inherited dunders and MRO detail in with the methods you actually want to use.
 
-`agent-readable` adds two dunders — `__agent_help__` (full custom output) and `__agent_notes__` (additive guidance that accumulates across inheritance) — that live next to the code. Library authors annotate once; any agent that calls `agent_help(cls)` gets a curated public-API list with current signatures, the class's behavioral rules attached, and no inherited-dunder or MRO noise to wade through.
+`agent-readable` has two halves, and the lighter one stands alone. The **consume side** is one function — `agent_help(target)` — that works on every Python library today, annotated or not. It introspects the live, installed class/module/function and returns a curated public-API list with current signatures, no inherited-dunder or MRO noise to wade through. That alone closes the *what exists* hallucination — agents stop inventing methods that aren't there and stop calling real ones with stale signatures. The **author side** adds two dunders: `__agent_help__` for full custom output and `__agent_notes__` for additive behavioral rules that accumulate across inheritance. When a library opts in, those rules show up next to the public-API list in the same `agent_help()` output — so the rules travel with refactors instead of rotting in a sidecar file.
 
 ## Installation
 
@@ -27,11 +27,51 @@ Requires Python 3.10+. No runtime dependencies.
 
 ## Quickstart
 
+`agent_help()` works on **any Python class, module, function, or method — no opt-in required**. Point it at a stdlib class:
+
 ```python
-from agent_readable import AgentReadableMixin, agent_help
+from agent_readable import agent_help
+import logging
+
+print(agent_help(logging.Logger))
+```
+
+Output (excerpted):
+
+````
+# Logger
+
+## Constructor
+
+```python
+Logger(name, level=0)
+```
+
+## Purpose
+
+Instances of the Logger class represent a single logging channel. ...
+
+## Public API
+
+- `addHandler(hdlr)` method: Add the specified handler to this logger.
+- `debug(msg, *args, **kwargs)` method: Log 'msg % args' with severity 'DEBUG'.
+- `info(msg, *args, **kwargs)` method: Log 'msg % args' with severity 'INFO'.
+- `setLevel(level)` method: Set the logging level of this logger.
+- `warning(msg, *args, **kwargs)` method: Log 'msg % args' with severity 'WARNING'.
+- ...
+````
+
+The `## Public API` list comes from **runtime introspection of the live, installed version** — current signatures, no inherited-dunder noise, no stale training-data guesses. Substitute any class, module, function, or method (yours, a third party's, or a stdlib one); zero setup on the target side.
+
+### Library authors: ship usage rules next to the code (optional)
+
+When you own the class, you can also ship class-level usage rules — lifecycle order, pre-conditions, anti-patterns — that `agent_help()` returns alongside the auto-generated public-API list. Define a `__agent_notes__()` classmethod (no mixin, no inheritance required); notes accumulate across the MRO so subclasses don't lose parent rules:
+
+```python
+from agent_readable import agent_help
 
 
-class Sensor(AgentReadableMixin):
+class Sensor:
     """Reads a value from a hardware sensor."""
 
     def __init__(self, pin: int, *, unit: str = "C"): ...
@@ -58,43 +98,7 @@ class Sensor(AgentReadableMixin):
 print(agent_help(Sensor))
 ```
 
-Output:
-
-````
-# Sensor
-
-## Constructor
-
-```python
-Sensor(pin: int, *, unit: str = 'C')
-```
-
-## Purpose
-
-Reads a value from a hardware sensor.
-
-## Public API
-
-- `calibrate(offset: float)` method: Apply a calibration offset.
-- `read() -> float` method: Read the current sensor value.
-
-## Agent usage rules
-
-- Prefer the public API listed above.
-- Do not use private methods or attributes starting with `_`.
-- Do not invent unsupported behavior.
-- If usage is ambiguous, prefer the simplest documented usage pattern.
-
-## Notes from class Sensor
-
-## Do
-
-- Call `calibrate()` once during setup, before `read()`.
-
-## Do not
-
-- Do not call `read()` before `calibrate()` on first use.
-````
+`agent_help(Sensor)` now returns the same auto-generated public-API list, plus a `## Notes from class Sensor` section carrying the rules above. Full output and inheritance-with-notes behavior in [Example 2](#example-2-inheritance-with-accumulated-notes) below.
 
 ## Why it matters
 
@@ -126,7 +130,7 @@ class Connection(builtins.object)
 
 `agent_help(sqlite3.Connection)` produces a curated public-API list with current signatures and any class-level rules attached — see Example 1 below. Notes from `__agent_notes__()` accumulate across inheritance. Class docs travel with the code in commits, reviews, and refactors. Drift gets caught in code review, not weeks later in a sidecar file.
 
-The examples below demonstrate four ways to use `agent_help()`.
+The examples below demonstrate five ways to use `agent_help()`, three with library-author opt-in (Examples 1–3) and two on plain classes/modules with no setup (Examples 4–5).
 
 ## Example 1: Wrapping an existing class
 
@@ -509,7 +513,7 @@ Outputs agent-oriented documentation for the given class, module, function, or m
 
 ### How does my agent know to call `agent_help()` instead of `help()`?
 
-Install the agent **skill** that ships in this repo at [`skills/agent-readable/`](skills/agent-readable/). It follows the [Agent Skills open standard](https://agentskills.io) — adopted by Claude Code, Codex CLI (OpenAI), Gemini CLI (Google), GitHub Copilot, Cursor, JetBrains Junie, Goose, OpenCode, and 40+ other tools — so dropping the folder into your agent's skills directory (`~/.claude/skills/`, `~/.codex/skills/`, your editor's equivalent) is enough for the agent to discover it. The skill teaches the agent to install `agent-readable`, call `agent_help(target)` before writing code against a class, module, function, or method, and add `__agent_notes__()` (or improve docstrings) when authoring new public APIs.
+Install the agent **skill** that ships in this repo at [`skills/agent-readable/`](skills/agent-readable/). It follows the [Agent Skills open standard](https://agentskills.io) — adopted by Claude Code, Codex CLI (OpenAI), Gemini CLI (Google), GitHub Copilot, JetBrains Junie, Goose, OpenCode, and 40+ other tools — so dropping the folder into your agent's skills directory (`~/.claude/skills/`, `~/.codex/skills/`, your editor's equivalent) is enough for the agent to auto-discover it. (Cursor is among the adopters too, but its skill integration is manual — you invoke the skill explicitly there rather than relying on description-match auto-activation.) The skill teaches the agent to install `agent-readable`, call `agent_help(target)` before writing code against a class, module, function, or method, and add `__agent_notes__()` (or improve docstrings) when authoring new public APIs.
 
 The folder lives next to the source code for now; a hub-published version (so you can install it through your harness's marketplace) is the next step on the roadmap.
 
@@ -537,19 +541,23 @@ Yes. Two ways:
 
 Yes — `agent_help()` falls back to introspection (Example 4). You get a structured summary of every plain class, mixin or not. Notes are added on top *if* the class defines them; otherwise the auto-doc is what you see.
 
+### Is `agent_help()` the strongest fix for API hallucination?
+
+No, and worth being upfront about it. The strongest known mitigation is **constrained decoding** at the harness or decoder layer — masking illegal API tokens before generation, so the model can't produce a nonexistent method at all. `agent_help()` takes the lighter, library-side path: an authoritative usage guide injected into the agent's context, leaving the agent to read and follow it. Recent research on Python API misuse shows the in-context route leaves a meaningful slice of hallucinations on the table even when verified API references are provided. The two approaches compose. Pick `agent_help()` when you have leverage on the library side and want a fix that works on every agent and every library today, without harness changes. Reach for constrained decoding when you control the harness or the decoder. Either way, verify generated code before merging.
+
 ## Keeping agent docs up to date
 
 Agent docs can go stale when classes change — new methods, changed behavior, removed APIs. Install the skill at [`skills/agent-readable/`](skills/agent-readable/) into your agent (see the FAQ above for the install). It teaches your agent to run `agent_help()` before modifying a class, prefer docstrings over `__agent_notes__()`, and verify that the output stays accurate after changes.
 
 ## The `__agent_help__` protocol
 
-`__agent_help__()` is a dunder protocol, similar in spirit to ecosystem protocols such as:
+`__agent_help__()` is a dunder protocol for tool-specific documentation, similar in spirit to:
 
-- `__str__` (str) — string representation
-- `__rich_repr__` (Rich) — custom console representation
-- `__html__` (Django, Jinja2) — HTML rendering
-- `__array__` (NumPy) — array conversion
-- `__fspath__` (os.fspath) — filesystem path conversion
+- `__doc__` (Python `help()`, Sphinx, IDEs, REPLs) — the canonical "this is my human-readable documentation" slot, read by inspection tools and surfaced through `help()`
+- `__rich_repr__` (Rich) — Rich-specific console representation read only when Rich renders the object
+- `__html__` (Django, Jinja2, MarkupSafe) — HTML-renderer-specific representation read only when those template engines render the object
+
+Unlike `__str__` or `__fspath__`, these dunders don't change Python runtime behavior — they're metadata slots a specific tool reads when it wants a representation. `__agent_help__` follows the same pattern for the agent-docs case.
 
 Classes that define a `@classmethod` named `__agent_help__` returning a `str` are considered agent-readable. Modules can define a top-level `__agent_help__` attribute (callable or string). Call the top-level `agent_help(obj)` function to get the docs — just like `str()` calls `__str__()`. The `AgentReadable` `typing.Protocol` and `AgentReadableMixin` are provided for convenience and type-checking, but neither is required.
 
@@ -557,13 +565,15 @@ Classes that define a `@classmethod` named `__agent_help__` returning a `str` ar
 
 The two dunders intentionally encode different composition rules:
 
-| Aspect          | `__agent_help__()`                              | `__agent_notes__()`                                                                           |
-| --------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Semantics       | **Replacement** — returned string IS the output | **Additive** — appended to auto-generated docs                                                |
-| Composition     | Single class wins (the one closest in MRO)      | Accumulated across the MRO; leaf class wins on conflict (header marks this)                   |
-| When to use     | Total control over the rendered text            | "Auto-doc + my extra do/don't rules"                                                          |
-| Skipped when    | (always called if defined)                      | Skipped (with a `UserWarning`) when a custom `__agent_help__` is present (it owns the output) |
-| Mixin required? | No — duck-typed classmethod is enough           | No — defining `__agent_notes__` on any class is enough                                        |
+| Aspect          | `__agent_help__()`                              | `__agent_notes__()`                                                                                  |
+| --------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Semantics       | **Replacement** — returned string IS the output | **Additive** — appended to auto-generated docs                                                       |
+| Composition     | Single class wins (the one closest in MRO)      | Accumulated across the MRO; leaf class wins on conflict (header marks this)                          |
+| When to use     | Total control over the rendered text            | "Auto-doc + my extra do/don't rules"                                                                 |
+| Skipped when    | (always called if defined)                      | Silently dropped (with `UserWarning`) when a custom `__agent_help__` is present (it owns the output) |
+| Mixin required? | No — duck-typed classmethod is enough           | No — defining `__agent_notes__` on any class is enough                                               |
+
+**Heads up on the both-defined case.** When a class defines both `__agent_help__()` and `__agent_notes__()`, the notes are silently dropped — `__agent_help__()` owns the output, and the auto-doc + notes path never runs. A `UserWarning` is emitted, but warnings are easy to miss in agent shells, CI logs, and notebooks — **treat "both defined" as a hard review error** rather than something the warning will reliably catch. Fix it by folding the notes into `__agent_help__()`, or by dropping the custom `__agent_help__()` and letting the auto-doc + notes path run.
 
 ## Class docstring hints
 
