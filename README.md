@@ -2,6 +2,12 @@
 
 Stop coding agents from hallucinating Python APIs. `agent_help(target)` reads the live public-API surface off any class, module, function, or method — no author opt-in needed — and optionally returns class-level usage rules (lifecycle order, pre-conditions, anti-patterns) when the library ships them.
 
+To let your coding agent automatically call `agent_help()` before using an unfamiliar API, install the skill:
+
+```bash
+npx skills add zydo/skills --skill agent-readable
+```
+
 <!-- markdownlint-disable MD033 -->
 <p align="center">
   <strong><code>logging.Logger</code> compared with <code>agent_help()</code> and <code>help()</code></strong><br>
@@ -513,9 +519,13 @@ Outputs agent-oriented documentation for the given class, module, function, or m
 
 ### How does my agent know to call `agent_help()` instead of `help()`?
 
-Install the agent **skill** that ships in this repo at [`skills/agent-readable/`](skills/agent-readable/). It follows the [Agent Skills open standard](https://agentskills.io) — adopted by Claude Code, Codex CLI (OpenAI), Gemini CLI (Google), GitHub Copilot, JetBrains Junie, Goose, OpenCode, and 40+ other tools — so dropping the folder into your agent's skills directory (`~/.claude/skills/`, `~/.codex/skills/`, your editor's equivalent) is enough for the agent to auto-discover it. (Cursor is among the adopters too, but its skill integration is manual — you invoke the skill explicitly there rather than relying on description-match auto-activation.) The skill teaches the agent to install `agent-readable`, call `agent_help(target)` before writing code against a class, module, function, or method, and add `__agent_notes__()` (or improve docstrings) when authoring new public APIs.
+Install the companion agent skill:
 
-The folder lives next to the source code for now; a hub-published version (so you can install it through your harness's marketplace) is the next step on the roadmap.
+```bash
+npx skills add zydo/skills --skill agent-readable
+```
+
+The skill teaches the agent to install `agent-readable`, call `agent_help(target)` before writing code against a class, module, function, or method, and add `__agent_notes__()` (or improve docstrings) when authoring new public APIs. (Cursor is among the adopters too, but its skill integration is manual — you invoke the skill explicitly there rather than relying on description-match auto-activation.)
 
 ### How is this different from `AGENTS.md` / `llms.txt` / Cursor rules?
 
@@ -547,7 +557,7 @@ No, and worth being upfront about it. The strongest known mitigation is **constr
 
 ## Keeping agent docs up to date
 
-Agent docs can go stale when classes change — new methods, changed behavior, removed APIs. Install the skill at [`skills/agent-readable/`](skills/agent-readable/) into your agent (see the FAQ above for the install). It teaches your agent to run `agent_help()` before modifying a class, prefer docstrings over `__agent_notes__()`, and verify that the output stays accurate after changes.
+Agent docs can go stale when classes change — new methods, changed behavior, removed APIs. Install the companion skill (`npx skills add zydo/skills --skill agent-readable`) to teach your agent to run `agent_help()` before modifying a class, prefer docstrings over `__agent_notes__()`, and verify that the output stays accurate after changes.
 
 ## The `__agent_help__` protocol
 
