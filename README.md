@@ -23,6 +23,10 @@ Today there's nowhere to put those rules where an agent will reliably find them.
 
 `agent-readable` has two halves, and the lighter one stands alone. The **consume side** is one function — `agent_help(target)` — that works on every Python library today, annotated or not. It introspects the live, installed class/module/function and returns a curated public-API list with current signatures, no inherited-dunder or MRO noise to wade through. That alone closes the *what exists* hallucination — agents stop inventing methods that aren't there and stop calling real ones with stale signatures. The **author side** adds two dunders: `__agent_help__` for full custom output and `__agent_notes__` for additive behavioral rules that accumulate across inheritance. When a library opts in, those rules show up next to the public-API list in the same `agent_help()` output — so the rules travel with refactors instead of rotting in a sidecar file.
 
+## Equivalents in other languages
+
+- **TypeScript** — [`agent-readable-ts`](https://github.com/zydo/agent-readable-ts)
+
 ## Installation
 
 ```bash
