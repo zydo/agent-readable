@@ -106,12 +106,36 @@ print(agent_help(Sensor))
 
 `agent_help(Sensor)` now returns the same auto-generated public-API list, plus a `## Notes from class Sensor` section carrying the rules above. Full output and inheritance-with-notes behavior in [Example 2](#example-2-inheritance-with-accumulated-notes) below.
 
+## CLI
+
+```bash
+# Any stdlib class
+python -m agent_readable sqlite3:Connection
+
+# A class in your own package
+python -m agent_readable my_package.temperature:CalibratedSensor
+
+# The library itself — self-documenting
+python -m agent_readable agent_readable:AgentReadableMixin
+
+# Any module
+python -m agent_readable pathlib
+
+# A function or method
+python -m agent_readable json:dumps
+python -m agent_readable pathlib:Path.read_text
+```
+
+Outputs agent-oriented documentation for the given class, module, function, or method to stdout.
+
 ## Why it matters
 
 `agent_help()` covers two failure modes agents hit on real APIs:
 
 1. **What exists.** The `## Public API` section is a curated list of current signatures pulled from runtime introspection — no hallucinated methods, no stale signatures from training data, no private members leaking in. If the agent reads this list first, it stops inventing methods that don't exist and stops calling real ones with the wrong arguments.
 2. **How to use it correctly.** Lifecycle order, pre-conditions, anti-patterns, *"this method is for X, that one for Y."* These don't fit in any single method's docstring and don't belong in a project-level `AGENTS.md` (which describes whole repos). They're class-level, and they need to travel with refactors. `__agent_notes__()` gives them a home next to the code.
+
+**Token efficiency.** Hallucinated APIs don't just produce wrong code — they trigger failure-retry loops that burn context and tokens. A single invented method can cost multiple rounds of write, run, error, rewrite before the agent converges on a real API. `agent_help()` generates compact, precise, accurate descriptions of publicly exposed interfaces — accurate because they're runtime-checked against the live, installed package — so calling it before writing code against an unfamiliar class or module collapses those rounds to zero. Call `python -m agent_readable <target>` from the CLI, or `agent_help(target)` in code. If the agent-readable skill is installed, your agent will do this automatically before coding against unfamiliar APIs.
 
 A concrete contrast:
 
@@ -492,28 +516,6 @@ import sys
 # Discouraged — replaces everything, including auto-generated docs.
 sys.modules[__name__].__agent_help__ = "Custom module help."
 ```
-
-## CLI
-
-```bash
-# Any stdlib class
-python -m agent_readable sqlite3:Connection
-
-# A class in your own package
-python -m agent_readable my_package.temperature:CalibratedSensor
-
-# The library itself — self-documenting
-python -m agent_readable agent_readable:AgentReadableMixin
-
-# Any module
-python -m agent_readable pathlib
-
-# A function or method
-python -m agent_readable json:dumps
-python -m agent_readable pathlib:Path.read_text
-```
-
-Outputs agent-oriented documentation for the given class, module, function, or method to stdout.
 
 ## FAQ
 
