@@ -13,7 +13,7 @@ npx skills add zydo/skills --skill agent-readable
 <!-- markdownlint-disable MD033 -->
 <p align="center">
   <strong><code>logging.Logger</code> compared with <code>agent_help()</code> and <code>help()</code></strong><br>
-  <img src="docs/agent_help_vs_help.gif" alt="agent_help vs help">
+  <img src="https://raw.githubusercontent.com/zydo/agent-readable/main/docs/agent_help_vs_help.gif" alt="agent_help vs help">
 </p>
 <!-- markdownlint-enable MD033 -->
 
