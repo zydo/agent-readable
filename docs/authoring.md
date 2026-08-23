@@ -28,13 +28,13 @@ The two dunders intentionally encode different composition rules:
 
 | Aspect          | `__agent_help__()`                         | `__agent_notes__()`                                                           |
 | --------------- | ------------------------------------------ | ----------------------------------------------------------------------------- |
-| Semantics       | Replacement: returned string is the output | Additive: appended to auto-generated docs                                     |
+| Semantics       | Replaces the auto-generated base document  | Additive: appended after the auto-doc or custom `__agent_help__()` output     |
 | Composition     | Single class wins, closest in MRO          | Accumulated across the MRO; leaf class wins on conflict                       |
-| When to use     | Total control over rendered text           | Auto-doc plus extra do/don't rules                                            |
-| Skipped when    | Always called if defined                   | Silently dropped, with `UserWarning`, when custom `__agent_help__` is present |
+| When to use     | Custom control over the base document      | Extra do/don't rules on top of any base                                       |
+| Skipped when    | Always called if defined                   | Never skipped when defined; a notes method that raises is skipped             |
 | Mixin required? | No                                         | No                                                                            |
 
-When a class defines both `__agent_help__()` and `__agent_notes__()`, the notes are silently dropped because `__agent_help__()` owns the output and the auto-doc plus notes path never runs. A `UserWarning` is emitted, but warnings are easy to miss in agent shells, CI logs, and notebooks. Treat "both defined" as a review error. Fix it by folding the notes into `__agent_help__()`, or by dropping custom `__agent_help__()` and letting the auto-doc plus notes path run.
+When a class defines both `__agent_help__()` and `__agent_notes__()`, the custom help replaces the auto-generated base document and the notes are appended after it — the same additive behavior as the auto-doc path, so no combination of the two dunders silently drops notes. If you need full verbatim control of the entire output, do not define `__agent_notes__()` anywhere in the class hierarchy.
 
 ## Class docstring hints
 
@@ -58,9 +58,9 @@ This way, even agents that only see the source or call `help()` are reminded to 
 
 Render agent-oriented Markdown for a class, module, function, or method.
 
-For classes, the output includes purpose, constructor, public API, default usage rules, and accumulated `__agent_notes__()` sections when present. For modules, it includes purpose, public functions, and public classes. For functions and methods, it includes signature, docstring, and default usage rules.
+For classes, the output includes purpose, constructor, public API (methods, properties, cached properties, constants, and enum members), default usage rules, and accumulated `__agent_notes__()` sections when present. For modules, it includes purpose, public functions (including C builtins), public classes, and constants. For functions and methods, it includes signature, docstring, and default usage rules.
 
-For classes and instances, if `__agent_help__()` is defined through the mixin or duck typing, it is called and its return value is used verbatim. Duck-typed implementations are responsible for their own formatting, and notes are not auto-appended. If such a class also defines `__agent_notes__()`, a `UserWarning` is emitted because those notes are silently dropped. Fold them into `__agent_help__()`, or drop the custom `__agent_help__()` to use the auto-doc path. If `__agent_help__()` raises, `agent_help()` falls back to the auto-generated path, which does include notes.
+For classes and instances, if `__agent_help__()` is defined through the mixin or duck typing, it is called and its return value is used as the base document. Duck-typed implementations replace the auto-generated base; `__agent_notes__()` sections from the MRO are still appended after it (the mixin default already embeds notes, so its output is used as-is). If `__agent_help__()` raises, `agent_help()` falls back to the auto-generated path, which does include notes. A `__agent_notes__()` that raises is skipped rather than fatal, so one broken notes method cannot take down help for a class and its subclasses.
 
 For modules, if the module defines a `__agent_help__` attribute, either callable or string, it is used. Otherwise, auto-generated docs are produced from the module docstring and its public functions and classes. When the module defines `__all__`, that list is the authoritative public API, so re-exported symbols are included. Otherwise public members are discovered by introspection, skipping private names and anything defined outside the module.
 

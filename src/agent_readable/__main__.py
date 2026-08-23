@@ -1,17 +1,39 @@
-"""CLI: ``python -m agent_readable package.module:ClassName``,
-``python -m agent_readable package.module.ClassName``,
-``python -m agent_readable package.module:Class.method``,
-or ``python -m agent_readable package.module``."""
+"""CLI: ``agent-readable package.module:ClassName``,
+``agent-readable package.module.ClassName``,
+``agent-readable package.module:Class.method``,
+or ``agent-readable package.module`` (also ``python -m agent_readable ...``)."""
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import inspect
 import sys
 import types
 from typing import Any
 
-from . import agent_help
+from . import __version__, agent_help
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="agent-readable",
+        description=(
+            "Print agent-oriented documentation for a Python class, module, "
+            "function, or method."
+        ),
+    )
+    parser.add_argument(
+        "target",
+        help=(
+            "import path: package.module, package.module:Target, "
+            "package.module.Target, or package.module:Class.method"
+        ),
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
+    return parser
 
 
 def _resolve(dotted_path: str) -> Any:
@@ -41,17 +63,13 @@ def _resolve(dotted_path: str) -> Any:
     return target
 
 
-def main() -> None:
-    if len(sys.argv) < 2:
-        print(
-            "Usage: python -m agent_readable "
-            "(package.module:Target | package.module.Target | package.module) "
-            "where Target is a class, function, or Class.method",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    target = _resolve(sys.argv[1])
+def main(argv: list[str] | None = None) -> None:
+    args = _build_parser().parse_args(argv)
+    try:
+        target = _resolve(args.target)
+    except (ImportError, AttributeError, TypeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None
     print(agent_help(target))
 
 

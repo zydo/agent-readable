@@ -10,9 +10,11 @@ here is shared by all of them.
 
 from __future__ import annotations
 
+import enum
+import functools
 import inspect
 import types
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 _CLASS_USAGE_RULES = (
@@ -33,15 +35,23 @@ _FUNCTION_USAGE_RULES = (
     "- If usage is ambiguous, prefer the simplest documented usage pattern.",
 )
 
+# Types whose repr() is safe to evaluate and bounded enough to show verbatim.
+# Exact-type checks (not isinstance) so subclasses with custom __repr__ never run.
+_REPR_TYPES = frozenset({bool, int, float, complex, str, bytes, type(None)})
+_MAX_VALUE_CHARS = 60
+
 
 @dataclass(frozen=True)
 class Member:
     """One public member of a class or module.
 
     ``signature`` is the call signature (e.g. ``"(offset: float)"``) and is
-    ``None`` for members that are not called positionally — properties and
-    classes. ``kind`` is one of ``method``, ``classmethod``, ``staticmethod``,
-    ``property``, ``function``, or ``class``.
+    ``None`` for members that are not called positionally — properties,
+    attributes, and classes. For ``attribute`` and ``member`` entries,
+    ``summary`` holds the value's repr (or its type name when the value has no
+    safe repr). ``kind`` is one of ``method``, ``classmethod``, ``staticmethod``,
+    ``property``, ``function``, ``class``, ``attribute``, or ``member`` (an
+    enum member).
     """
 
     name: str
@@ -80,7 +90,7 @@ class HelpDoc:
     purpose: str | None = None
     members: tuple[Member, ...] = ()
     usage_rules: tuple[str, ...] = ()
-    notes: tuple[Notes, ...] = field(default_factory=tuple)
+    notes: tuple[Notes, ...] = ()
 
 
 def build_class_doc(cls: type) -> HelpDoc:
@@ -131,7 +141,10 @@ def collect_agent_notes(cls: type) -> list[Notes]:
 
     Each class that defines its own ``__agent_notes__`` contributes one
     :class:`Notes`. The leaf class records the ancestor names it overrides so a
-    renderer can mark that the leaf's notes win on conflict.
+    renderer can mark that the leaf's notes win on conflict. A notes method
+    that raises is skipped — one broken ``__agent_notes__`` (even an inherited
+    one) must not take down help for the whole class — mirroring how a raising
+    ``__agent_help__`` falls back to the auto-generated path.
     """
     notes: list[Notes] = []
     parent_names: list[str] = []
@@ -140,7 +153,10 @@ def collect_agent_notes(cls: type) -> list[Notes]:
         if raw is None:
             continue
         fn = raw.__func__ if isinstance(raw, classmethod) else raw
-        result = fn(cls)
+        try:
+            result = fn(cls)
+        except Exception:
+            continue
         if result:
             inherited = tuple(parent_names) if klass is cls and parent_names else ()
             notes.append(
@@ -160,7 +176,9 @@ def _collect_module_api(module: types.ModuleType) -> list[Member]:
             members.append(
                 Member(name=name, kind="class", summary=_first_doc_line(obj))
             )
-        elif inspect.isfunction(obj):
+        elif inspect.isroutine(obj):
+            # isroutine (not isfunction) so C builtins — math.sin, os.getcwd —
+            # are listed too, not just pure-Python functions.
             members.append(
                 Member(
                     name=name,
@@ -168,6 +186,12 @@ def _collect_module_api(module: types.ModuleType) -> list[Member]:
                     summary=_first_doc_line(obj),
                     signature=_safe_signature(obj),
                 )
+            )
+        elif isinstance(obj, types.ModuleType) or callable(obj):
+            continue
+        else:
+            members.append(
+                Member(name=name, kind="attribute", summary=_value_summary(obj))
             )
     return members
 
@@ -180,7 +204,10 @@ def _module_members(module: types.ModuleType) -> list[tuple[str, Any]]:
     modules (``from other import Foo``), which the ``__module__`` heuristic below
     would otherwise discard. Without ``__all__`` we fall back to the heuristic:
     skip private names and anything defined outside this module or its
-    submodules.
+    submodules. The origin filter only applies to classes, functions, and
+    modules — for anything else (a constant like ``pi = 3.14``, a re-exported
+    instance) ``__module__`` describes the object's *type*, not where it was
+    bound, so filtering on it would drop every module-level constant.
     """
     explicit = getattr(module, "__all__", None)
     if explicit is not None:
@@ -200,31 +227,82 @@ def _module_members(module: types.ModuleType) -> list[tuple[str, Any]]:
     for name, obj in inspect.getmembers(module):
         if name.startswith("_"):
             continue
-        obj_module = getattr(obj, "__module__", None)
         if (
-            obj_module is not None
-            and obj_module != mod_name
-            and not obj_module.startswith(mod_name + ".")
+            inspect.isclass(obj)
+            or inspect.isroutine(obj)
+            or isinstance(obj, types.ModuleType)
         ):
-            continue
+            obj_module = getattr(obj, "__module__", None)
+            if (
+                obj_module is not None
+                and obj_module != mod_name
+                and not obj_module.startswith(mod_name + ".")
+            ):
+                continue
         members.append((name, obj))
     return members
 
 
 def _format_constructor(cls: type) -> str | None:
+    if issubclass(cls, enum.Enum):
+        # The callable signature on an Enum subclass is EnumMeta.__call__
+        # (``Color(value, names=None, *, module=None, ...)``) — about dynamic
+        # enum creation, not normal use. Members are listed instead.
+        return None
+
+    sig = _class_signature(cls)
+    if sig is None:
+        # inspect could not produce any signature (many C types, e.g. int).
+        return None
+    if not _is_vacuous_signature(sig):
+        return f"{cls.__name__}{sig}"
+
+    # ``(*args, **kwargs)`` usually means a metaclass __call__ masked the real
+    # signature; __init__/__new__ may still know the actual parameters.
+    for fallback in ("__init__", "__new__"):
+        fn = getattr(cls, fallback, None)
+        if fn is None or fn in (object.__init__, object.__new__):
+            continue
+        try:
+            fsig = inspect.signature(fn)
+        except (TypeError, ValueError):
+            continue
+        params = list(fsig.parameters.values())
+        if not params:
+            continue
+        stripped = fsig.replace(parameters=params[1:])
+        if not _is_vacuous_signature(stripped):
+            return f"{cls.__name__}{stripped}"
+
+    return f"{cls.__name__}{sig}"
+
+
+def _class_signature(cls: type) -> inspect.Signature | None:
     try:
-        signature = inspect.signature(cls)
+        return inspect.signature(cls)
     except (TypeError, ValueError):
         return None
 
-    return f"{cls.__name__}{signature}"
+
+def _is_vacuous_signature(sig: inspect.Signature) -> bool:
+    """True for the placeholder ``(*args, **kwargs)`` and nothing else."""
+    params = list(sig.parameters.values())
+    return (
+        len(params) == 2
+        and params[0].kind is inspect.Parameter.VAR_POSITIONAL
+        and params[1].kind is inspect.Parameter.VAR_KEYWORD
+    )
 
 
 def _collect_public_api(cls: type) -> list[Member]:
     members: list[Member] = []
+    is_enum = issubclass(cls, enum.Enum)
 
     for name, _ in inspect.getmembers(cls):
         if name.startswith("_"):
+            continue
+        if is_enum and name in ("name", "value"):
+            # Per-member accessors, not class-level API.
             continue
 
         try:
@@ -232,7 +310,13 @@ def _collect_public_api(cls: type) -> list[Member]:
         except AttributeError:
             continue
 
-        if isinstance(raw, property):
+        if isinstance(raw, enum.Enum):
+            members.append(Member(name=name, kind="member", summary=_member_value(raw)))
+            continue
+
+        if isinstance(raw, (property, functools.cached_property)):
+            # cached_property is not a property subclass but fills the same
+            # role; its __doc__ is copied from the wrapped function.
             members.append(
                 Member(name=name, kind="property", summary=_first_doc_line(raw))
             )
@@ -247,7 +331,14 @@ def _collect_public_api(cls: type) -> list[Member]:
         elif inspect.isfunction(raw) or (callable(raw) and not isinstance(raw, type)):
             fn = raw
             kind = "method"
+        elif not isinstance(raw, type):
+            # Non-callable public attribute: a constant, flag, or default.
+            members.append(
+                Member(name=name, kind="attribute", summary=_value_summary(raw))
+            )
+            continue
         else:
+            # Nested classes stay out of the member list.
             continue
 
         if kind in ("method", "classmethod"):
@@ -260,6 +351,28 @@ def _collect_public_api(cls: type) -> list[Member]:
         )
 
     return members
+
+
+def _value_summary(raw: Any) -> str:
+    """A safe, bounded summary of a public attribute's value.
+
+    repr() only runs for exact primitive types, so no user ``__repr__`` code is
+    executed; everything else is described by its type name.
+    """
+    if type(raw) in _REPR_TYPES:
+        text = repr(raw)
+    else:
+        text = type(raw).__name__
+    if len(text) > _MAX_VALUE_CHARS:
+        text = text[: _MAX_VALUE_CHARS - 1] + "…"
+    return text
+
+
+def _member_value(member: enum.Enum) -> str:
+    value = member.value
+    if type(value) in _REPR_TYPES:
+        return _value_summary(value)
+    return ""
 
 
 def _safe_signature(obj: Any) -> str:

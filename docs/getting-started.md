@@ -23,22 +23,22 @@ The examples below use `sqlite3:Connection` as the target; replace it with any i
 With `uvx`:
 
 ```bash
-uvx --from agent-readable python -m agent_readable sqlite3:Connection
+uvx --from agent-readable agent-readable sqlite3:Connection
 ```
 
 With `uv tool run`:
 
 ```bash
-uv tool run --from agent-readable python -m agent_readable sqlite3:Connection
+uv tool run --from agent-readable agent-readable sqlite3:Connection
 ```
 
 With `pipx`:
 
 ```bash
-pipx run --spec agent-readable python -m agent_readable sqlite3:Connection
+pipx run --spec agent-readable agent-readable sqlite3:Connection
 ```
 
-`uvx` is shorthand for `uv tool run`. These commands are useful for standard-library targets and packages available inside the temporary environment. For your own project classes, run from an environment where that project is importable.
+`uvx` is shorthand for `uv tool run`, and `python -m agent_readable` works identically wherever the package is installed. These commands are useful for standard-library targets and packages available inside the temporary environment. For your own project classes, run from an environment where that project is importable.
 
 To let your coding agent automatically call `agent_help()` before using an unfamiliar API, install the companion skill:
 
@@ -123,25 +123,30 @@ print(agent_help(Sensor))
 
 ## CLI
 
+Wherever the package is installed, both `agent-readable` and `python -m agent_readable` work:
+
 ```bash
 # Any stdlib class
-python -m agent_readable sqlite3:Connection
+agent-readable sqlite3:Connection
 
 # A class in your own package
-python -m agent_readable my_package.temperature:CalibratedSensor
+agent-readable my_package.temperature:CalibratedSensor
 
 # The library itself
-python -m agent_readable agent_readable:AgentReadableMixin
+agent-readable agent_readable:AgentReadableMixin
 
 # Any module
-python -m agent_readable pathlib
+agent-readable pathlib
 
 # A function or method
-python -m agent_readable json:dumps
-python -m agent_readable pathlib:Path.read_text
+agent-readable json:dumps
+agent-readable pathlib:Path.read_text
+
+# Installed version
+agent-readable --version
 ```
 
-The CLI writes agent-oriented documentation for the target to stdout.
+The CLI writes agent-oriented documentation for the target to stdout. A target that cannot be imported or resolved prints a one-line error to stderr and exits with status 2.
 
 ## Other Languages
 

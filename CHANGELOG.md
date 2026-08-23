@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Console script `agent-readable`, so one-off use is
+  `uvx --from agent-readable agent-readable sqlite3:Connection` instead of
+  `uvx --from agent-readable python -m agent_readable sqlite3:Connection`.
+  `python -m agent_readable` keeps working.
+- `--version` flag for the CLI.
+- Public class attributes and module constants are now listed in the Public API
+  section with their current value: `repr` for exact primitive types (never
+  executing a custom `__repr__`), the type name otherwise.
+- Enum members are listed (e.g. ``- `RED` member: 1``), and the misleading
+  `EnumMeta.__call__` constructor signature is no longer shown for enum
+  classes.
+- Module docs now include C builtins (`inspect.isroutine` instead of
+  `inspect.isfunction`), so `agent_help(math)` lists `sin` alongside
+  pure-Python functions, and module-level constants such as `math.pi` are no
+  longer dropped by the origin heuristic.
+- A constructor that introspection renders as the placeholder `(*args,
+  **kwargs)` — e.g. masked by a metaclass `__call__` — now falls back to the
+  class's `__init__`/`__new__` signature.
+- Mypy type-checking job in CI.
+- Benchmark harness (`scripts/benchmark.py`) and methodology
+  (`docs/benchmark.md`) for measuring whether `agent_help()` context reduces
+  hallucinated-API failures versus a baseline prompt. Status: not yet run;
+  no numbers are claimed until a real run is recorded.
+
+### Changed
+
+- **Breaking:** `__agent_notes__()` sections are now always appended, including
+  after a custom `__agent_help__()`'s output. Previously the notes were
+  silently dropped when a custom `__agent_help__` was defined and a
+  `UserWarning` was emitted; defining both is now a supported combination and
+  the warning is gone. For full verbatim control of the entire output, do not
+  define `__agent_notes__()` anywhere in the MRO.
+- The CLI prints a one-line `error: ...` message to stderr and exits with
+  status 2 for targets that cannot be imported or resolved, instead of raising
+  a traceback.
+
+### Fixed
+
+- A raising `__agent_notes__()` no longer breaks `agent_help()` for the class
+  and all of its subclasses; the broken notes are skipped, mirroring the
+  existing `__agent_help__()` fallback.
+- `functools.cached_property` members are no longer silently dropped from the
+  Public API; they render as properties with the wrapped function's docstring.
+
 ## [0.2.1] - 2026-07-04
 
 ### Documentation

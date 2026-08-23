@@ -1,8 +1,4 @@
-import sys
-
-import pytest
-
-from agent_readable import AgentReadableMixin
+from agent_readable import AgentReadableMixin, __version__
 from agent_readable.__main__ import main
 
 # -- Test fixtures -----------------------------------------------------------
@@ -56,19 +52,33 @@ def test_cli_custom_doc_class(capsys):
 
 def test_cli_no_args(capsys):
     code = _run_main()
-    assert code == 1
+    assert code == 2
     err = capsys.readouterr().err
-    assert "Usage" in err
+    assert "usage:" in err.lower()
+    assert "target" in err
 
 
-def test_cli_nonexistent_module():
-    with pytest.raises(ModuleNotFoundError):
-        _run_main("does_not_exist:Foo")
+def test_cli_version(capsys):
+    code = _run_main("--version")
+    assert code == 0
+    out = capsys.readouterr().out
+    assert __version__ in out
 
 
-def test_cli_nonexistent_attribute():
-    with pytest.raises(AttributeError):
-        _run_main("tests.test_cli:NonExistent")
+def test_cli_nonexistent_module(capsys):
+    code = _run_main("does_not_exist:Foo")
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "does_not_exist" in err
+
+
+def test_cli_nonexistent_attribute(capsys):
+    code = _run_main("tests.test_cli:NonExistent")
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "NonExistent" in err
 
 
 def test_cli_function_target(capsys):
@@ -88,9 +98,11 @@ def test_cli_method_target(capsys):
     assert "Retrieve a value by key." in out
 
 
-def test_cli_invalid_target_type():
-    with pytest.raises(TypeError, match="expected a class, module, function"):
-        _run_main("agent_readable:__version__")
+def test_cli_invalid_target_type(capsys):
+    code = _run_main("agent_readable:__version__")
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "expected a class, module, function" in err
 
 
 def test_cli_module(capsys):
@@ -101,14 +113,10 @@ def test_cli_module(capsys):
     assert "## Public API" in out
 
 
-def _run_main(*args: str):
+def _run_main(*args: str) -> int:
     """Run main() in-process, capturing stdout/stderr."""
-    orig = sys.argv
-    sys.argv = ["agent_readable", *args]
     try:
-        main()
+        main(list(args))
     except SystemExit as e:  # NOSONAR
-        return e.code
-    finally:
-        sys.argv = orig
+        return int(e.code) if isinstance(e.code, int) else 0
     return 0

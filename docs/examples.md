@@ -154,11 +154,11 @@ class RateLimiter:
 print(agent_help(RateLimiter))
 ```
 
-Use `__agent_help__()` when you need total control over the rendered output. Use `__agent_notes__()` when you want auto-generated API docs plus your extra rules.
+Use `__agent_help__()` when the auto-generated base document is not what you want and you prefer to write the base by hand. Use `__agent_notes__()` when the auto-generated API docs are fine and you just want extra rules on top. `__agent_notes__()` sections defined anywhere in the MRO are appended after custom `__agent_help__()` output too, so mixed setups do not lose notes.
 
 ## Example 4: Any class, no setup required
 
-Even without the mixin or duck typing, `agent_help()` generates structured Markdown from introspection: a curated public API list with current signatures, free of inherited dunders and MRO clutter. Full example: [`examples/any_class.py`](../examples/any_class.py).
+Even without the mixin or duck typing, `agent_help()` generates structured Markdown from introspection: a curated public API list with current signatures, free of inherited dunders and MRO clutter. Methods, properties, cached properties, public constants (with their values), and enum members are all listed. Full example: [`examples/any_class.py`](../examples/any_class.py).
 
 ```python
 import logging

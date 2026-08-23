@@ -59,6 +59,7 @@ class Sensor:
 - [Examples](docs/examples.md): wrapping existing classes, inherited notes, duck typing, plain classes, modules, functions, and methods.
 - [Authoring guide](docs/authoring.md): `__agent_help__`, `__agent_notes__`, class docstring hints, freshness guidance, and API reference.
 - [FAQ](docs/faq.md): common questions about agent skills, docstrings, `AGENTS.md`, third-party libraries, and constrained decoding.
+- [Benchmark](docs/benchmark.md): methodology and harness measuring whether `agent_help()` context reduces hallucinated-API failures.
 
 ## Other Languages
 

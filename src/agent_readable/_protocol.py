@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import inspect
 import types
-import warnings
 from typing import Any, Protocol, runtime_checkable
 
 from ._model import (
@@ -11,7 +10,7 @@ from ._model import (
     build_module_doc,
     collect_agent_notes,
 )
-from ._render import render_markdown
+from ._render import render_markdown, render_notes
 
 _MISSING = object()
 
@@ -20,11 +19,12 @@ _MISSING = object()
 class AgentReadable(Protocol):
     """Protocol for classes that expose agent-oriented documentation.
 
-    Implementing ``__agent_help__()`` opts the class into **full replacement**:
-    the returned string IS what ``agent_help(cls)`` returns, verbatim. Notes from
-    ``__agent_notes__()`` are NOT auto-appended — implementers control the entire
-    output. To get auto-doc + appended notes instead, use ``AgentReadableMixin``
-    (or just define ``__agent_notes__()`` and let the auto-doc path run).
+    Implementing ``__agent_help__()`` replaces the **auto-generated base
+    document** (introspected public API, constructor, usage rules) with the
+    returned string. ``__agent_notes__()`` sections are still appended after
+    it, so notes defined anywhere in the MRO keep showing — if you want full
+    verbatim control of the entire output, do not define ``__agent_notes__()``
+    anywhere in the class hierarchy.
     """
 
     @classmethod
@@ -62,11 +62,12 @@ class AgentReadableMixin:
         """
         Additive custom guidance, collected from every class in the MRO.
 
-        Unlike ``__agent_help__`` (which replaces the entire output),
-        ``__agent_notes__`` is **appended** to the auto-generated docs and
-        **accumulates across the MRO** — every class that defines its own
-        ``__agent_notes__`` contributes a section. The leaf class is tagged as
-        taking precedence over inherited notes when they conflict.
+        Unlike ``__agent_help__`` (which replaces the auto-generated base
+        document), ``__agent_notes__`` is **appended** — after the auto-doc, or
+        after a custom ``__agent_help__()``'s output — and **accumulates across
+        the MRO**: every class that defines its own ``__agent_notes__``
+        contributes a section. The leaf class is tagged as taking precedence
+        over inherited notes when they conflict.
 
         Do not prepend ``super().__agent_notes__()`` — collection is automatic.
         Defining this method on any class is enough; the ``AgentReadableMixin``
@@ -81,21 +82,18 @@ def agent_help(obj: Any) -> str:
 
     Dispatch for classes/instances:
 
-    1. **``__agent_help__()`` is defined** — call it and return its result
-       verbatim. The ``AgentReadableMixin`` default returns
-       ``_base_agent_doc(cls)`` (auto-doc with ``__agent_notes__`` appended);
-       duck-typed implementations return whatever the user formatted, so notes
-       are NOT auto-included on that path — the implementer owns the full
-       output. If such a class also defines ``__agent_notes__()``, a
-       ``UserWarning`` is emitted because those notes are silently dropped.
+    1. **``__agent_help__()`` is defined** — call it and use its result as the
+       base document. ``__agent_notes__()`` sections from every class in the
+       MRO are appended after it, mirroring the auto-doc path (the mixin
+       default already embeds notes, so its output is used as-is; a notes
+       method that raises is skipped, like a raising ``__agent_help__``).
     2. **``__agent_help__`` is missing** — fall through to
-       ``_base_agent_doc(cls)``, which appends ``__agent_notes__()`` from every
-       class in the MRO automatically.
-    3. **``__agent_help__()`` raises** — same fallback as path 2 (auto-doc with
-       notes).
+       ``_base_agent_doc(cls)``, the auto-generated document with
+       ``__agent_notes__()`` from every class in the MRO appended.
+    3. **``__agent_help__()`` raises** — same fallback as path 2.
 
-    Notes accumulation lives in ``_base_agent_doc()``, which is why duck-typed
-    ``__agent_help__()`` skips it: that path never reaches ``_base_agent_doc``.
+    Notes always contribute when defined, regardless of path — there is no
+    combination of the two dunders that silently drops notes.
 
     For modules: if the module defines a ``__agent_help__`` attribute (callable
     or string), it is used directly. Otherwise auto-generated docs are produced
@@ -145,35 +143,27 @@ def agent_help(obj: Any) -> str:
         except Exception:
             pass
         if result is not _MISSING:
-            if _custom_help_drops_notes(target, fn):
-                warnings.warn(
-                    f"{target.__name__} defines both a custom __agent_help__() and "
-                    "__agent_notes__(), but the notes are silently dropped: a custom "
-                    "__agent_help__() owns the full output, so agent_help() never "
-                    "appends notes. Fold the notes into __agent_help__(), or remove "
-                    "the custom __agent_help__() to use the auto-generated docs "
-                    "(which do append notes).",
-                    stacklevel=2,
-                )
-            if isinstance(result, str):
-                return result
-            return str(result)
+            rendered = result if isinstance(result, str) else str(result)
+            return _with_appended_notes(rendered, target, fn)
 
     return _base_agent_doc(target)
 
 
-def _custom_help_drops_notes(cls: type, fn: Any) -> bool:
-    """True when a custom ``__agent_help__`` will silently discard ``__agent_notes__``.
+def _with_appended_notes(rendered: str, cls: type, fn: Any) -> str:
+    """Append collected ``__agent_notes__()`` sections after custom help output.
 
-    A custom (non-mixin) ``__agent_help__`` owns the full output and never reaches
-    ``_base_agent_doc``, so any ``__agent_notes__`` the class defines is dropped. The
-    mixin default appends notes, so it returns False; classes with no effective notes
-    also return False.
+    The mixin's ``__agent_help__`` builds on ``_base_agent_doc``, which already
+    embeds notes — appending again would duplicate them — so its output is
+    returned unchanged. Any other implementation gets the same additive notes
+    treatment as the auto-doc path.
     """
-    mixin_help = AgentReadableMixin.__agent_help__.__func__
+    mixin_help = AgentReadableMixin.__dict__["__agent_help__"].__func__
     if getattr(fn, "__func__", None) is mixin_help:
-        return False
-    return bool(collect_agent_notes(cls))
+        return rendered
+    notes = collect_agent_notes(cls)
+    if not notes:
+        return rendered
+    return rendered + "\n\n" + render_notes(tuple(notes))
 
 
 def _base_agent_doc(cls: type) -> str:

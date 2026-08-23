@@ -1,7 +1,7 @@
+import enum
+import functools
 import types
 import warnings
-
-import pytest
 
 from agent_readable import AgentReadable, AgentReadableMixin, agent_help
 
@@ -167,48 +167,113 @@ def test_agent_help_accumulates_notes_without_mixin():
     assert "Child rule." in result
 
 
-def test_agent_help_duck_typed_skips_notes():
-    """Duck-typed __agent_help__ controls full output; notes are NOT auto-appended."""
+def test_agent_help_duck_typed_appends_notes():
+    """Duck-typed __agent_help__ replaces the base; notes are still appended."""
 
     class DuckTyped:
         """A class with both duck-typed help and notes."""
 
         @classmethod
         def __agent_help__(cls) -> str:
-            return "Duck-typed verbatim."
+            return "Duck-typed base."
 
         @classmethod
         def __agent_notes__(cls) -> str:
-            return "These notes should be ignored."
+            return "Duck-typed rule."
 
-    with pytest.warns(UserWarning, match="silently dropped"):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         result = agent_help(DuckTyped)
-    assert result == "Duck-typed verbatim."
-    assert "should be ignored" not in result
+    assert result.startswith("Duck-typed base.")
+    assert "## Notes from class DuckTyped" in result
+    assert "Duck-typed rule." in result
 
 
-def test_agent_help_warns_when_custom_help_drops_notes():
-    """A custom __agent_help__ plus __agent_notes__ warns that the notes are lost."""
+def test_agent_help_custom_help_appends_inherited_notes():
+    """Notes from a parent class survive a child's custom __agent_help__."""
 
-    class DropsNotes:
-        """Custom help that shadows its own notes."""
+    class NotesParent:
+        @classmethod
+        def __agent_notes__(cls) -> str:
+            return "Parent rule."
+
+    class CustomChild(NotesParent):
+        """Custom child."""
 
         @classmethod
         def __agent_help__(cls) -> str:
-            return "Verbatim."
+            return "Child custom base."
+
+    result = agent_help(CustomChild)
+    assert result.startswith("Child custom base.")
+    assert "## Notes from class NotesParent" in result
+    assert "Parent rule." in result
+
+
+def test_agent_help_mixin_notes_not_duplicated():
+    """The mixin default already embeds notes; the append step must not repeat them."""
+    result = agent_help(MixinWithNotes)
+    assert result.count("## Notes from class MixinWithNotes") == 1
+
+
+def test_agent_help_skips_notes_that_raise():
+    """A raising __agent_notes__ is skipped, not fatal (like __agent_help__)."""
+
+    class BoomNotes:
+        """A class whose notes explode."""
+
+        def ok(self):
+            """Ok."""
 
         @classmethod
         def __agent_notes__(cls) -> str:
-            return "Lost notes."
+            raise RuntimeError("boom")
 
-    with pytest.warns(UserWarning) as record:
-        agent_help(DropsNotes)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = agent_help(BoomNotes)
+    assert "# BoomNotes" in result
+    assert "ok" in result
+    assert "## Notes from class BoomNotes" not in result
 
-    assert len(record) == 1
-    message = str(record[0].message)
-    assert "DropsNotes" in message
-    assert "__agent_help__" in message
-    assert "__agent_notes__" in message
+
+def test_agent_help_skips_parent_notes_that_raise():
+    """One broken parent notes method must not take down help for subclasses."""
+
+    class ParentBoom:
+        @classmethod
+        def __agent_notes__(cls) -> str:
+            raise RuntimeError("parent boom")
+
+    class ChildBoom(ParentBoom):
+        """Child."""
+
+        def go(self):
+            """Go."""
+
+    result = agent_help(ChildBoom)
+    assert "# ChildBoom" in result
+    assert "go" in result
+
+
+def test_agent_help_keeps_child_notes_when_parent_notes_raise():
+    """The leaf's own notes still render when a parent's notes raise."""
+
+    class ParentBoom:
+        @classmethod
+        def __agent_notes__(cls) -> str:
+            raise RuntimeError("parent boom")
+
+    class ChildKept(ParentBoom):
+        """Child."""
+
+        @classmethod
+        def __agent_notes__(cls) -> str:
+            return "Child rule."
+
+    result = agent_help(ChildKept)
+    assert "## Notes from class ChildKept" in result
+    assert "Child rule." in result
 
 
 def test_agent_help_no_warning_for_mixin_with_notes():
@@ -355,6 +420,124 @@ def test_agent_help_excludes_callable_class_attributes():
     result = agent_help(WithCallableAttr)
     assert "method" in result
     assert "helper" not in result
+
+
+# -- Attributes, cached properties, enums -------------------------------------
+
+
+def test_agent_help_includes_public_constants():
+    class WithConstants:
+        """Test class."""
+
+        MAX_RETRIES = 5
+        LABEL = "v1"
+        ENABLED = True
+        NOTHING = None
+
+    result = agent_help(WithConstants)
+    assert "`MAX_RETRIES` attribute: 5" in result
+    assert "`LABEL` attribute: 'v1'" in result
+    assert "`ENABLED` attribute: True" in result
+    assert "`NOTHING` attribute: None" in result
+
+
+def test_agent_help_attribute_without_safe_repr_shows_type_name():
+    class Guard:
+        pass
+
+    class WithObject:
+        """Test class."""
+
+        guard = Guard()
+
+    result = agent_help(WithObject)
+    assert "`guard` attribute: Guard" in result
+
+
+def test_agent_help_does_not_execute_custom_repr():
+    """Only exact primitive types are repr'd; subclasses never run __repr__."""
+
+    class EvilStr(str):
+        def __repr__(self):
+            raise AssertionError("custom repr must not run")
+
+    class WithEvil:
+        """Test class."""
+
+        value = EvilStr("x")
+
+    result = agent_help(WithEvil)
+    assert "`value` attribute: EvilStr" in result
+
+
+def test_agent_help_truncates_long_attribute_repr():
+    class WithLong:
+        """Test class."""
+
+        TEXT = "x" * 100
+
+    result = agent_help(WithLong)
+    assert "…" in result
+    assert "x" * 60 not in result
+
+
+def test_agent_help_includes_cached_property():
+    class WithCached:
+        """Test class."""
+
+        @functools.cached_property
+        def cached(self) -> int:
+            """A cached value."""
+            return 1
+
+    result = agent_help(WithCached)
+    assert "`cached` property: A cached value." in result
+
+
+def test_agent_help_enum_lists_members_without_metaclass_constructor():
+    class Color(enum.Enum):
+        """Colors."""
+
+        RED = 1
+        GREEN = "green"
+
+    result = agent_help(Color)
+    assert "## Constructor" not in result
+    assert "names=None" not in result
+    assert "`RED` member: 1" in result
+    assert "`GREEN` member: 'green'" in result
+    # Per-member accessors are not class-level API.
+    assert "`name`" not in result
+    assert "`value`" not in result
+
+
+def test_agent_help_enum_member_with_non_primitive_value():
+    class Flags(enum.Enum):
+        """Flags."""
+
+        CONFIG = ("a", "b")
+
+    result = agent_help(Flags)
+    assert "`CONFIG` member" in result
+    assert "`CONFIG` member:" not in result
+
+
+def test_agent_help_constructor_falls_back_behind_metaclass_call():
+    """A metaclass __call__ masks the real signature; __init__ recovers it."""
+
+    class Meta(type):
+        def __call__(cls, *args, **kwargs):
+            return super().__call__(*args, **kwargs)
+
+    class Config(metaclass=Meta):
+        """Config."""
+
+        def __init__(self, path: str, retries: int = 3):
+            """Initialize."""
+
+    result = agent_help(Config)
+    assert "Config(path: str, retries: int = 3)" in result
+    assert "Config(*args, **kwargs)" not in result
 
 
 # -- AgentReadable protocol tests --------------------------------------------
@@ -530,7 +713,7 @@ def test_agent_help_method_with_broken_signature():
         def method(self):
             """A method."""
 
-    BadSig.method.__signature__ = "not a signature"  # type: ignore[assignment]
+    BadSig.method.__signature__ = "not a signature"  # type: ignore[attr-defined, assignment]
 
     result = agent_help(BadSig)
     assert "method" in result
@@ -726,6 +909,47 @@ def test_agent_help_module_heuristic_excludes_foreign_symbol():
     assert "Foreign" not in result
 
 
+def test_agent_help_module_includes_constants():
+    """Module-level constants pass the origin filter (their __module__ is the
+    type's, not the binding's) and show with their repr."""
+    mod = _make_module("mymod", "A module.")
+    mod.PI = 3.25  # type: ignore[attr-defined]
+    mod.NAME = "mymod-name"  # type: ignore[attr-defined]
+
+    result = agent_help(mod)
+    assert "`PI` attribute: 3.25" in result
+    assert "`NAME` attribute: 'mymod-name'" in result
+
+
+def test_agent_help_module_all_includes_constant():
+    mod = _make_module("mymod", "A module.")
+    mod.LIMIT = 7  # type: ignore[attr-defined]
+    mod.__all__ = ["LIMIT"]  # type: ignore[attr-defined]
+
+    result = agent_help(mod)
+    assert "`LIMIT` attribute: 7" in result
+
+
+def test_agent_help_module_includes_builtin_functions():
+    """C builtins (isfunction is False for them) are part of a module's API."""
+    mod = _make_module("mymod", "A module.")
+    mod.sizeof = len  # type: ignore[attr-defined]
+    mod.__all__ = ["sizeof"]  # type: ignore[attr-defined]
+
+    result = agent_help(mod)
+    assert "`sizeof(obj, /)` function" in result
+    assert "Return the number of items" in result
+
+
+def test_agent_help_math_module_lists_c_functions_and_constants():
+    """Integration: the stdlib C module math shows its functions and constants."""
+    import math
+
+    result = agent_help(math)
+    assert "`sin(" in result
+    assert "`pi` attribute" in result
+
+
 def test_agent_help_module_custom_callable():
     mod = _make_module("mymod")
 
@@ -846,7 +1070,7 @@ def test_agent_help_function_custom_callable_override():
     def f():
         """Auto doc."""
 
-    f.__agent_help__ = lambda: "Custom function help."
+    f.__agent_help__ = lambda: "Custom function help."  # type: ignore[attr-defined]
     assert agent_help(f) == "Custom function help."
 
 
@@ -854,7 +1078,7 @@ def test_agent_help_function_custom_string_override():
     def f():
         """Auto doc."""
 
-    f.__agent_help__ = "String function help."
+    f.__agent_help__ = "String function help."  # type: ignore[attr-defined]
     assert agent_help(f) == "String function help."
 
 
@@ -862,7 +1086,7 @@ def test_agent_help_function_non_string_return():
     def f():
         """Auto doc."""
 
-    f.__agent_help__ = lambda: 99
+    f.__agent_help__ = lambda: 99  # type: ignore[attr-defined]
     assert agent_help(f) == "99"
 
 
@@ -873,7 +1097,7 @@ def test_agent_help_function_override_exception_falls_back():
     def boom():
         raise RuntimeError("boom")
 
-    f.__agent_help__ = boom
+    f.__agent_help__ = boom  # type: ignore[attr-defined]
     result = agent_help(f)
     assert "Fallback doc." in result
     assert "## Signature" in result

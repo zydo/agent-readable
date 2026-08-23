@@ -37,10 +37,20 @@ def render_markdown(doc: HelpDoc) -> str:
         body = "\n".join(doc.usage_rules)
         sections.append(f"## Agent usage rules\n\n{body}")
 
-    for note in doc.notes:
-        sections.append(_render_notes(note))
+    if doc.notes:
+        sections.append(render_notes(doc.notes))
 
     return "\n\n".join(sections)
+
+
+def render_notes(notes: tuple[Notes, ...]) -> str:
+    """Render collected :class:`Notes` as Markdown sections.
+
+    Shared by the auto-doc path (notes embedded in a full :class:`HelpDoc`) and
+    the custom ``__agent_help__()`` path, which appends the same sections after
+    the custom output.
+    """
+    return "\n\n".join(_render_notes(note) for note in notes)
 
 
 def _code_section(heading: str, code: str) -> str:

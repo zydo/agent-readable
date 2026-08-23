@@ -43,3 +43,6 @@ hatch.toml
 
 # No external dependencies for this project, and uv.lock is only needed for local dev.
 uv.lock
+
+# Local scratch files (audits, drafts, planning docs)
+.localonly/
