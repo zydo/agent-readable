@@ -19,7 +19,7 @@ npx skills add zydo/skills --skill agent-readable
 
 ## Quickstart
 
-See [Getting started](docs/getting-started.md) for installation, one-off CLI usage with `uvx`, `uv tool run`, or `pipx`, and full CLI examples.
+See [Getting started](docs/getting-started.md) for installation and one-off CLI usage in two parallel series — uv and pip.
 
 ```python
 from agent_readable import agent_help

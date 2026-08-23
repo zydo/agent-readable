@@ -16,34 +16,56 @@ Requires Python 3.10+. No runtime dependencies.
 
 ## One-off CLI use
 
-If you only want to print readable documentation for a Python target and do not want to add `agent-readable` to the current environment, run it in a temporary tool environment:
+Two parallel series — pick whichever matches your tooling. Each one-off command creates an isolated tool environment on first use, caches it for instant repeat runs, and never touches the current environment. Replace `sqlite3:Connection` with any importable class, module, function, or method.
 
-The examples below use `sqlite3:Connection` as the target; replace it with any importable class, module, function, or method.
-
-With `uvx`:
+### uv series
 
 ```bash
-uvx --from agent-readable agent-readable sqlite3:Connection
+# One-off — isolated tool environment, cached by uv
+uvx agent-readable sqlite3:Connection
+
+# One-off for a third-party package — --with adds it to the environment
+uvx --with requests agent-readable requests:Session
+
+# Repeated use — install once, then run the bare command
+uv tool install agent-readable
+agent-readable sqlite3:Connection
 ```
 
-With `uv tool run`:
+### pip series
 
 ```bash
-uv tool run --from agent-readable agent-readable sqlite3:Connection
-```
-
-With `pipx`:
-
-```bash
+# One-off — pipx builds and caches an isolated environment
 pipx run --spec agent-readable agent-readable sqlite3:Connection
-```
 
-`uvx` is shorthand for `uv tool run`, and `python -m agent_readable` works identically wherever the package is installed. These commands are useful for standard-library targets and packages available inside the temporary environment. For your own project classes, run from an environment where that project is importable.
+# Repeated use — install once with pipx (isolated, on PATH)
+pipx install agent-readable
+agent-readable sqlite3:Connection
+
+# Plain pip — persistent install into any environment you choose
+pip install agent-readable
+```
 
 To let your coding agent automatically call `agent_help()` before using an unfamiliar API, install the companion skill:
 
 ```bash
 npx skills add zydo/skills --skill agent-readable
+```
+
+## Your own project
+
+The one-off environments above cannot import your own project's code. Run the CLI from an environment where the project is importable:
+
+```bash
+uv add --dev agent-readable
+uv run agent-readable my_package.temperature:CalibratedSensor
+```
+
+Or with pip, install into the project's environment and run the bare command:
+
+```bash
+pip install agent-readable
+agent-readable my_package.temperature:CalibratedSensor
 ```
 
 ## Quickstart
