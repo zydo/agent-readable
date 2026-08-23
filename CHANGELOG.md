@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-23
+
 ### Added
 
 - Console script `agent-readable`, so one-off use is
-  `uvx --from agent-readable agent-readable sqlite3:Connection` instead of
+  `uvx agent-readable sqlite3:Connection` instead of
   `uvx --from agent-readable python -m agent_readable sqlite3:Connection`.
   `python -m agent_readable` keeps working.
 - `--version` flag for the CLI.
@@ -132,7 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AgentReadableMixin`, `__agent_notes__` accumulation across the MRO, module
   support, and the `python -m agent_readable` CLI.
 
-[Unreleased]: https://github.com/zydo/agent-readable/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/zydo/agent-readable/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/zydo/agent-readable/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/zydo/agent-readable/compare/v0.2.0...v0.2.1
 [0.1.2]: https://github.com/zydo/agent-readable/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/zydo/agent-readable/compare/v0.1.0...v0.1.1
